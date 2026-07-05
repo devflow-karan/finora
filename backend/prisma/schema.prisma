@@ -1,0 +1,164 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  transactions Transaction[]
+  budgets      Budget[]
+  loans        Loan[]
+  investments  Investment[]
+  insurances   Insurance[]
+  goals        FinancialGoal[]
+  notifications Notification[]
+  insights     AIInsight[]
+}
+
+model Transaction {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime
+  description  String
+  category     String
+  subCategory  String?
+  amount       Float
+  type         String   // 'INCOME' | 'EXPENSE'
+  paymentMode  String   // 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI' | 'NET_BANKING'
+  account      String   // E.g., 'HDFC Bank', 'ICICI Card'
+  tags         String[]
+  notes        String?
+  recurring    Boolean  @default(false)
+  attachments  String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Budget {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         String   // 'MONTHLY' | 'YEARLY'
+  category     String
+  amount       Float
+  startDate    DateTime
+  endDate      DateTime
+  carryForward Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Loan {
+  id             String         @id @default(uuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  lender         String
+  principal      Float
+  interestRate   Float
+  interestType   String         // 'SIMPLE' | 'COMPOUND'
+  emi            Float
+  outstanding    Float
+  startDate      DateTime
+  endDate        DateTime
+  type           String         // 'INTEREST_FREE' | 'INTEREST_BEARING'
+  extraPayments  ExtraPayment[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model ExtraPayment {
+  id          String   @id @default(uuid())
+  loanId      String
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  date        DateTime
+  amount      Float
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Investment {
+  id           String         @id @default(uuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  type         String         // 'MUTUAL_FUND' | 'STOCK' | 'GOLD' | 'FD' | 'EPF' | 'PPF' | 'NPS' | 'CRYPTO'
+  principal    Float
+  units        Float?
+  navOrPrice   Float?
+  purchaseDate DateTime
+  value        Float
+  profit       Float
+  goalId       String?
+  goal         FinancialGoal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Insurance {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  policyName   String
+  policyNumber String
+  type         String   // 'LIFE' | 'HEALTH' | 'VEHICLE' | 'HOME' | 'PARENTS'
+  premium      Float
+  premiumFrequency String   @default("YEARLY") // 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'YEARLY'
+  renewalDate  DateTime
+  nominee      String?
+  coverage     Float
+  status       String   // 'ACTIVE' | 'EXPIRED' | 'LAPSED'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model FinancialGoal {
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  type          String       // 'EMERGENCY_FUND' | 'HOUSE' | 'CHILD_EDUCATION' | 'TRAVEL' | 'RETIREMENT' | 'VEHICLE' | 'WEDDING' | 'CUSTOM'
+  targetAmount  Float
+  currentAmount Float
+  expectedDate  DateTime
+  investments   Investment[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   // 'INSURANCE_RENEWAL' | 'LOAN_DUE' | 'EMI_DUE' | 'SIP_DUE' | 'BUDGET_EXCEEDED' | 'GOAL_ACHIEVED'
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AIInsight {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month     Int
+  year      Int
+  content   String
+  type      String   // 'INFO' | 'WARNING' | 'TIP'
+  createdAt DateTime @default(now())
+}
