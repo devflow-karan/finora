@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateInvestmentDto, UpdateInvestmentDto } from './dto/investment.dto.js';
+import { Investment } from '../../generated/prisma/client';
 
 @Injectable()
 export class InvestmentsService {
@@ -90,7 +91,7 @@ export class InvestmentsService {
     let totalValue = 0;
 
     const allocationMap: Record<string, number> = {};
-    const items = investments.map((inv) => {
+    const items = investments.map((inv: Investment) => {
       totalInvested += inv.principal;
       totalValue += inv.value;
 
