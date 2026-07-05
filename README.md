@@ -74,7 +74,6 @@ Coming Soon
 - Budget Module
 - Investments
 - AI Insights
-- Mobile App
 
 ---
 
