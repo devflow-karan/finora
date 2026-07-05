@@ -12,7 +12,7 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('Reading CSV file...');
-  const csvPath = path.join('/data/projects/2026/expenseTracker/Daily Expenses - June Expense.csv');
+  const csvPath = path.join(__dirname, '..', '..', 'Daily Expenses - June Expense.csv');
   const fileContent = fs.readFileSync(csvPath, 'utf-8');
   const lines = fileContent.split('\n');
 
@@ -28,6 +28,18 @@ async function main() {
     },
   });
   console.log(`Using user: ${user.name} (${user.email})`);
+
+  // Get or create account for user
+  const account = await prisma.account.findFirst({
+    where: { userId: user.id },
+  });
+
+  if (!account) {
+    console.error('No account found for user. Please run db:seed first.');
+    process.exit(1);
+  }
+
+  console.log(`Using account: ${account.name} (opening balance: ₹${account.openingBalance})`);
 
   let importedCount = 0;
 
@@ -79,13 +91,13 @@ async function main() {
     await prisma.transaction.create({
       data: {
         userId: user.id,
+        accountId: account.id,
         date,
         description,
         category,
         amount,
         type,
         paymentMode: 'CASH', // default fallback
-        account: 'Cash Account',
         tags: ['june-import'],
       },
     });

@@ -25,6 +25,21 @@ async function main() {
 
   console.log(`User: ${user.name} (${user.email})`);
 
+  // Create account for user with opening balance
+  const account = await prisma.account.upsert({
+    where: { id: `account_${user.id}` },
+    update: { openingBalance: 97809.04 },
+    create: {
+      id: `account_${user.id}`,
+      userId: user.id,
+      name: 'Primary Account',
+      openingBalance: 97809.04,
+      currency: 'INR',
+    },
+  });
+
+  console.log(`Account created: ${account.name} with opening balance ₹${account.openingBalance}`);
+
   // Clear existing investments only (keep transactions intact)
   await prisma.investment.deleteMany({ where: { userId: user.id } });
 

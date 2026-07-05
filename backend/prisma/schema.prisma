@@ -26,12 +26,27 @@ model User {
   goals        FinancialGoal[]
   notifications Notification[]
   insights     AIInsight[]
+  accounts     Account[]
+}
+
+model Account {
+  id             String          @id @default(uuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String          @default("Primary Account")
+  openingBalance Float           @default(0)
+  currency       String          @default("INR")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  transactions   Transaction[]
 }
 
 model Transaction {
   id           String   @id @default(uuid())
   userId       String
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   date         DateTime
   description  String
   category     String
@@ -39,7 +54,6 @@ model Transaction {
   amount       Float
   type         String   // 'INCOME' | 'EXPENSE'
   paymentMode  String   // 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI' | 'NET_BANKING'
-  account      String   // E.g., 'HDFC Bank', 'ICICI Card'
   tags         String[]
   notes        String?
   recurring    Boolean  @default(false)

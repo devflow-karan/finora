@@ -13,9 +13,19 @@ export class TransactionsService {
       throw new BadRequestException('Potential duplicate transaction detected');
     }
 
+    // Get user's primary account
+    const account = await this.prisma.account.findFirst({
+      where: { userId },
+    });
+
+    if (!account) {
+      throw new BadRequestException('No account found for user');
+    }
+
     return this.prisma.transaction.create({
       data: {
         userId,
+        accountId: account.id,
         date: new Date(dto.date),
         description: dto.description,
         category: dto.category,
@@ -23,7 +33,6 @@ export class TransactionsService {
         amount: dto.amount,
         type: dto.type,
         paymentMode: dto.paymentMode,
-        account: dto.account,
         tags: dto.tags || [],
         notes: dto.notes,
         recurring: dto.recurring || false,
@@ -84,7 +93,8 @@ export class TransactionsService {
 
     return this.prisma.transaction.findMany({
       where,
-      orderBy: { date: 'desc' },
+      // Return transactions in ascending creation order so daily view shows oldest->newest
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -104,8 +114,17 @@ export class TransactionsService {
     return this.prisma.transaction.update({
       where: { id },
       data: {
-        ...dto,
         date: dto.date ? new Date(dto.date) : undefined,
+        description: dto.description,
+        category: dto.category,
+        subCategory: dto.subCategory,
+        amount: dto.amount,
+        type: dto.type,
+        paymentMode: dto.paymentMode,
+        tags: dto.tags,
+        notes: dto.notes,
+        recurring: dto.recurring,
+        attachments: dto.attachments,
       },
     });
   }

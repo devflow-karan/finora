@@ -10,7 +10,13 @@ export class DashboardService {
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-    // 1. Transactions this month
+    // 1. Get all accounts for user and sum opening balances
+    const accounts = await this.prisma.account.findMany({
+      where: { userId },
+    });
+    const totalOpeningBalance = accounts.reduce((sum, acc) => sum + acc.openingBalance, 0);
+
+    // 2. Transactions this month
     const currentMonthTransactions = await this.prisma.transaction.findMany({
       where: {
         userId,
@@ -34,19 +40,22 @@ export class DashboardService {
     const savings = monthlyIncome - monthlyExpenses;
     const savingsRate = monthlyIncome > 0 ? (savings / monthlyIncome) * 100 : 0;
 
-    // 2. All time transactions to estimate current bank/cash balance
+    // 3. All time transactions to estimate current bank/cash balance
+    // Current balance = sum(opening balances) + sum(all transactions since opening)
     const allTransactions = await this.prisma.transaction.findMany({
       where: { userId },
     });
 
-    let currentBalance = 0;
+    let txBalance = 0;
     for (const tx of allTransactions) {
       if (tx.type === 'INCOME') {
-        currentBalance += tx.amount;
+        txBalance += tx.amount;
       } else {
-        currentBalance -= tx.amount;
+        txBalance -= tx.amount;
       }
     }
+
+    const currentBalance = totalOpeningBalance + txBalance;
 
     // 3. Investments summary
     const investments = await this.prisma.investment.findMany({
