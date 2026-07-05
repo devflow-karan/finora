@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext.js';
 import {
-  Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingUp,
   Percent,
   PiggyBank,
   ShieldCheck,
@@ -80,37 +78,30 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Main KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Net Worth */}
-        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5 shadow-sm relative overflow-hidden">
-          <div className="absolute right-[-10px] bottom-[-10px] opacity-5">
-            <TrendingUp className="w-24 h-24 text-emerald-400" />
-          </div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Family Net Worth</span>
-            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold">₹{cards.netWorth.toLocaleString('en-IN')}</h3>
-          <p className="text-xs text-gray-400 mt-2">Assets: ₹{cards.currentBalance + cards.totalInvestments} | Debt: ₹{cards.totalLoans}</p>
+        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5 relative overflow-hidden">
+          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Family Net Worth</span>
+          <h3 className="text-2xl font-bold mt-2">
+            ₹{cards.netWorth.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <span className="text-xs text-gray-500 block mt-2">
+            Assets: ₹{(Math.max(0, cards.currentBalance) + cards.totalInvestments).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | Debt: ₹{cards.totalLoans.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
         </div>
 
         {/* Current Balance */}
-        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Cash/Bank Balance</span>
-            <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-              <Wallet className="w-4 h-4" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-bold">₹{cards.currentBalance.toLocaleString('en-IN')}</h3>
-          <div className="flex items-center mt-2 space-x-3 text-xs">
+        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5">
+          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Cash/Bank Balance</span>
+          <h3 className="text-2xl font-bold mt-2">
+            ₹{cards.currentBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <div className="flex flex-col mt-2 text-xs text-gray-400 gap-1">
             <span className="text-emerald-400 flex items-center">
-              <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> In: ₹{cards.monthlyIncome.toLocaleString('en-IN')}
+              <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> In: ₹{cards.monthlyIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span className="text-rose-400 flex items-center">
-              <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" /> Out: ₹{cards.monthlyExpenses.toLocaleString('en-IN')}
+              <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" /> Out: ₹{cards.monthlyExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>

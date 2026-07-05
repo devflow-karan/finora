@@ -233,20 +233,24 @@ export const Transactions: React.FC = () => {
             {totalIncome > 0 && (
               <div className="flex items-center space-x-1.5">
                 <span className="text-gray-500 text-xs">Income</span>
-                <span className="font-bold text-emerald-400">+₹{totalIncome.toLocaleString('en-IN')}</span>
+                <span className="font-bold text-emerald-400">
+                  +₹{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
             )}
             {totalExpense > 0 && (
               <div className="flex items-center space-x-1.5">
                 <span className="text-gray-500 text-xs">Expense</span>
-                <span className="font-bold text-rose-400">-₹{totalExpense.toLocaleString('en-IN')}</span>
+                <span className="font-bold text-rose-400">
+                  -₹{totalExpense.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
             )}
             {totalIncome > 0 && totalExpense > 0 && (
               <div className="flex items-center space-x-1.5 pl-2 border-l border-gray-700">
                 <span className="text-gray-500 text-xs">Net</span>
                 <span className={`font-bold ${net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {net >= 0 ? '+' : ''}₹{net.toLocaleString('en-IN')}
+                  {net >= 0 ? '+' : ''}₹{net.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             )}
@@ -301,7 +305,7 @@ export const Transactions: React.FC = () => {
                     <td className="py-3 px-4 text-gray-400">{tx.account}</td>
                     <td className="py-3 px-4 text-gray-400">{tx.paymentMode}</td>
                     <td className={`py-3 px-4 font-bold text-right ${tx.type === 'INCOME' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
+                      {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button

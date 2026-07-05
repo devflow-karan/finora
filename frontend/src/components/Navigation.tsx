@@ -36,7 +36,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab 
       <div className="p-6">
         <div className="flex items-center space-x-3 mb-8">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-emerald-400 to-blue-500 flex items-center justify-center font-bold text-white shadow-lg">
-            A
+            {user?.email ? user.email.trim().charAt(0).toUpperCase() : user?.name ? user.name.trim().charAt(0).toUpperCase() : 'A'}
           </div>
           <div>
             <h2 className="font-bold text-sm text-white">Finora</h2>
