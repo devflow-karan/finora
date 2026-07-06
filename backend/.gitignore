@@ -1,7 +1,7 @@
 node_modules/
 # Keep environment variables out of version control
 .env
-.env.*
+.env.production
 
 # Build output
 /dist/
@@ -23,4 +23,8 @@ lerna-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# Local deploy scripts (not shared/versioned)
 *.sh
+# ...except the Docker container entrypoint, which is required for the image build
+!docker-entrypoint.sh
