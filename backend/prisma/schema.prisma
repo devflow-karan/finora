@@ -113,6 +113,8 @@ model Investment {
   principal    Float
   units        Float?
   navOrPrice   Float?
+  isSip        Boolean        @default(false)
+  sipAmount    Float?
   purchaseDate DateTime
   value        Float
   profit       Float

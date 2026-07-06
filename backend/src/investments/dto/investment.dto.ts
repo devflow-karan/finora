@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsOptional, IsDateString, IsEnum, IsBoolean, ValidateIf } from 'class-validator';
 
 export class CreateInvestmentDto {
   @IsString()
@@ -21,6 +21,15 @@ export class CreateInvestmentDto {
   @IsNumber()
   @IsOptional()
   navOrPrice?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isSip?: boolean;
+
+  @IsNumber()
+  @ValidateIf((o) => o.isSip === true)
+  @IsNotEmpty({ message: 'sipAmount is required when isSip is true' })
+  sipAmount?: number;
 
   @IsDateString()
   @IsNotEmpty()
@@ -56,6 +65,15 @@ export class UpdateInvestmentDto {
   @IsNumber()
   @IsOptional()
   navOrPrice?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isSip?: boolean;
+
+  @IsNumber()
+  @ValidateIf((o) => o.isSip === true)
+  @IsNotEmpty({ message: 'sipAmount is required when isSip is true' })
+  sipAmount?: number;
 
   @IsDateString()
   @IsOptional()

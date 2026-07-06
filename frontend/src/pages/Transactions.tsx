@@ -121,14 +121,14 @@ export const Transactions: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 bg-[#0d0f14] text-white p-8 overflow-y-auto">
+    <div className="flex-1 bg-[#0d0f14] text-white p-4 sm:p-6 lg:p-8 overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Daily Transactions</h1>
           <p className="text-gray-400 text-sm mt-1">Search, audit, and batch import statement logs.</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-3">
           <button
             onClick={() => setShowImportForm(true)}
             className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"

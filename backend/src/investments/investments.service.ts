@@ -18,6 +18,8 @@ export class InvestmentsService {
         principal: dto.principal,
         units: dto.units,
         navOrPrice: dto.navOrPrice,
+        isSip: dto.isSip ?? false,
+        sipAmount: dto.isSip ? dto.sipAmount : null,
         purchaseDate: new Date(dto.purchaseDate),
         value: dto.value,
         profit,
@@ -57,6 +59,7 @@ export class InvestmentsService {
       data: {
         ...dto,
         purchaseDate: dto.purchaseDate ? new Date(dto.purchaseDate) : undefined,
+        sipAmount: dto.isSip === false ? null : dto.sipAmount,
         profit,
       },
     });
@@ -82,6 +85,7 @@ export class InvestmentsService {
         totalProfit: 0,
         profitPercentage: 0,
         portfolioXirr: 0,
+        totalMonthlySip: 0,
         allocation: [],
         items: [],
       };
@@ -89,11 +93,16 @@ export class InvestmentsService {
 
     let totalInvested = 0;
     let totalValue = 0;
+    let totalMonthlySip = 0;
 
     const allocationMap: Record<string, number> = {};
     const items = investments.map((inv: Investment) => {
       totalInvested += inv.principal;
       totalValue += inv.value;
+
+      if (inv.isSip && inv.sipAmount) {
+        totalMonthlySip += inv.sipAmount;
+      }
 
       allocationMap[inv.type] = (allocationMap[inv.type] || 0) + inv.value;
 
@@ -137,6 +146,7 @@ export class InvestmentsService {
       totalProfit,
       profitPercentage: Number(profitPercentage.toFixed(2)),
       portfolioXirr: Number(portfolioXirr.toFixed(2)),
+      totalMonthlySip,
       allocation,
       items,
     };

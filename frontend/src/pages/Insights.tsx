@@ -28,7 +28,7 @@ export const Insights: React.FC = () => {
 
   if (loading || !health) {
     return (
-      <div className="flex-1 bg-[#0d0f14] p-8 flex items-center justify-center text-white">
+      <div className="flex-1 bg-[#0d0f14] p-4 sm:p-6 lg:p-8 flex items-center justify-center text-white">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-400" />
       </div>
     );
@@ -37,9 +37,9 @@ export const Insights: React.FC = () => {
   const { score, breakdown } = health;
 
   return (
-    <div className="flex-1 bg-[#0d0f14] text-white p-8 overflow-y-auto">
+    <div className="flex-1 bg-[#0d0f14] text-white p-4 sm:p-6 lg:p-8 overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Financial Health & Insights</h1>
           <p className="text-gray-400 text-sm mt-1">Audit personal financial metrics and review AI money coach suggestions.</p>

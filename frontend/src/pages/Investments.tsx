@@ -17,6 +17,16 @@ export const Investments: React.FC = () => {
   const [nav, setNav] = useState('');
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [value, setValue] = useState('');
+  const [isSip, setIsSip] = useState(false);
+  const [sipAmount, setSipAmount] = useState('');
+
+  const handleTypeChange = (newType: string) => {
+    setType(newType);
+    if (newType !== 'MUTUAL_FUND') {
+      setIsSip(false);
+      setSipAmount('');
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -53,6 +63,37 @@ export const Investments: React.FC = () => {
     }
   };
 
+  // Inline SIP edit state
+  const [sipEditId, setSipEditId] = useState<string | null>(null);
+  const [sipEditIsSip, setSipEditIsSip] = useState(false);
+  const [sipEditAmount, setSipEditAmount] = useState('');
+
+  const openSipEdit = (item: any) => {
+    setSipEditId(item.id);
+    setSipEditIsSip(!!item.isSip);
+    setSipEditAmount(item.sipAmount ? String(item.sipAmount) : '');
+  };
+
+  const handleSipSave = async (id: string) => {
+    if (sipEditIsSip && !sipEditAmount) {
+      alert('Enter the monthly SIP amount');
+      return;
+    }
+    try {
+      await apiFetch(`/investments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          isSip: sipEditIsSip,
+          sipAmount: sipEditIsSip ? parseFloat(sipEditAmount) : null,
+        }),
+      });
+      setSipEditId(null);
+      loadData();
+    } catch (err) {
+      alert('SIP update failed');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Remove this investment record?')) return;
     try {
@@ -65,6 +106,10 @@ export const Investments: React.FC = () => {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (type === 'MUTUAL_FUND' && isSip && !sipAmount) {
+      alert('Enter the monthly SIP amount');
+      return;
+    }
     try {
       await apiFetch('/investments', {
         method: 'POST',
@@ -74,6 +119,8 @@ export const Investments: React.FC = () => {
           principal: parseFloat(principal),
           units: units ? parseFloat(units) : null,
           navOrPrice: nav ? parseFloat(nav) : null,
+          isSip: type === 'MUTUAL_FUND' ? isSip : false,
+          sipAmount: type === 'MUTUAL_FUND' && isSip ? parseFloat(sipAmount) : null,
           purchaseDate: new Date(purchaseDate).toISOString(),
           value: parseFloat(value || principal),
         }),
@@ -85,6 +132,8 @@ export const Investments: React.FC = () => {
       setUnits('');
       setNav('');
       setValue('');
+      setIsSip(false);
+      setSipAmount('');
       loadData();
     } catch (err) {
       alert(err || 'Failed to add investment');
@@ -93,7 +142,7 @@ export const Investments: React.FC = () => {
 
   if (loading || !summary) {
     return (
-      <div className="flex-1 bg-[#0d0f14] p-8 flex items-center justify-center text-white">
+      <div className="flex-1 bg-[#0d0f14] p-4 sm:p-6 lg:p-8 flex items-center justify-center text-white">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-400" />
       </div>
     );
@@ -102,9 +151,9 @@ export const Investments: React.FC = () => {
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6b7280', '#06b6d4'];
 
   return (
-    <div className="flex-1 bg-[#0d0f14] text-white p-8 overflow-y-auto">
+    <div className="flex-1 bg-[#0d0f14] text-white p-4 sm:p-6 lg:p-8 overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Investment Portfolio</h1>
           <p className="text-gray-400 text-sm mt-1">Audit equity, mutual funds, EPF, NPS, PPF, and Sovereign Gold bonds.</p>
@@ -119,7 +168,7 @@ export const Investments: React.FC = () => {
       </div>
 
       {/* Portfolio overview cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5">
           <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Portfolio Value</span>
           <h3 className="text-2xl font-bold mt-2">₹{summary.totalValue.toLocaleString('en-IN')}</h3>
@@ -139,6 +188,12 @@ export const Investments: React.FC = () => {
           <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Portfolio XIRR</span>
           <h3 className="text-2xl font-bold text-emerald-400 mt-2">{summary.portfolioXirr}%</h3>
           <span className="text-xs text-gray-500 block mt-2">Internal rate of return</span>
+        </div>
+
+        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5">
+          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Total Monthly SIP</span>
+          <h3 className="text-2xl font-bold text-amber-400 mt-2">₹{(summary.totalMonthlySip || 0).toLocaleString('en-IN')}</h3>
+          <span className="text-xs text-gray-500 block mt-2">Active SIP commitments</span>
         </div>
 
         <div className="bg-[#161b22] border border-gray-800 rounded-xl p-5 flex items-center justify-between">
@@ -167,6 +222,11 @@ export const Investments: React.FC = () => {
                       <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700">
                         {item.type}
                       </span>
+                      {item.isSip && (
+                        <span className="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20 whitespace-nowrap">
+                          SIP · ₹{Number(item.sipAmount || 0).toLocaleString('en-IN')}/mo
+                        </span>
+                      )}
                       <span className="text-[10px] text-gray-500">
                         Invested: ₹{item.principal.toLocaleString('en-IN')}
                       </span>
@@ -186,6 +246,14 @@ export const Investments: React.FC = () => {
                       >
                         Update ₹
                       </button>
+                      {item.type === 'MUTUAL_FUND' && (
+                        <button
+                          onClick={() => openSipEdit(item)}
+                          className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-2 py-1 rounded-lg border border-amber-500/20 transition-all whitespace-nowrap"
+                        >
+                          SIP
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(item.id)}
                         className="text-[10px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-2 py-1 rounded-lg border border-rose-500/20 transition-all"
@@ -219,6 +287,44 @@ export const Investments: React.FC = () => {
                     >
                       ✕
                     </button>
+                  </div>
+                )}
+
+                {/* Inline SIP edit panel */}
+                {sipEditId === item.id && (
+                  <div className="mt-3 space-y-2 pt-3 border-t border-gray-800">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={sipEditIsSip}
+                        onChange={(e) => setSipEditIsSip(e.target.checked)}
+                        className="w-4 h-4 rounded bg-[#0d0f14] border-gray-700 text-amber-500 focus:ring-amber-500"
+                      />
+                      <span className="text-xs text-white">This is a SIP (Systematic Investment Plan)</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-400 whitespace-nowrap">Monthly SIP (₹)</span>
+                      <input
+                        type="number"
+                        value={sipEditAmount}
+                        onChange={(e) => setSipEditAmount(e.target.value)}
+                        disabled={!sipEditIsSip}
+                        autoFocus
+                        className="flex-1 bg-[#161b22] border border-amber-500/40 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500 disabled:opacity-40"
+                      />
+                      <button
+                        onClick={() => handleSipSave(item.id)}
+                        className="bg-amber-500 hover:bg-amber-400 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setSipEditId(null)}
+                        className="text-gray-500 hover:text-white px-2 py-1.5 rounded-lg text-xs transition-all"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -283,7 +389,7 @@ export const Investments: React.FC = () => {
                   <label className="block text-xs text-gray-400 mb-1">Asset Type</label>
                   <select
                     value={type}
-                    onChange={(e) => setType(e.target.value)}
+                    onChange={(e) => handleTypeChange(e.target.value)}
                     className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="MUTUAL_FUND">Mutual Fund</option>
@@ -307,6 +413,33 @@ export const Investments: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {type === 'MUTUAL_FUND' && (
+                <div className="bg-[#0d0f14] border border-gray-850 rounded-lg p-3">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isSip}
+                      onChange={(e) => setIsSip(e.target.checked)}
+                      className="w-4 h-4 rounded bg-[#0d0f14] border-gray-700 text-emerald-500 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm text-white">This is a SIP (Systematic Investment Plan)</span>
+                  </label>
+                  {isSip && (
+                    <div className="mt-3">
+                      <label className="block text-xs text-gray-400 mb-1">Monthly SIP Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g., 5000"
+                        value={sipAmount}
+                        onChange={(e) => setSipAmount(e.target.value)}
+                        className="w-full bg-[#161b22] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                        required
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
