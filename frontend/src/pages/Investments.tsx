@@ -215,11 +215,11 @@ export const Investments: React.FC = () => {
           <div className="space-y-3">
             {summary.items.map((item: any) => (
               <div key={item.id} className="p-4 bg-[#0d0f14] border border-gray-850 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0 pr-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0 sm:flex-1 sm:pr-3">
                     <h4 className="font-semibold text-sm text-white truncate">{item.name}</h4>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700">
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
+                      <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700 whitespace-nowrap">
                         {item.type}
                       </span>
                       {item.isSip && (
@@ -227,12 +227,12 @@ export const Investments: React.FC = () => {
                           SIP · ₹{Number(item.sipAmount || 0).toLocaleString('en-IN')}/mo
                         </span>
                       )}
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[10px] text-gray-500 whitespace-nowrap">
                         Invested: ₹{item.principal.toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3 flex-shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end space-x-3 flex-shrink-0">
                     <div className="text-right">
                       <p className="font-bold text-sm text-white">₹{item.value.toLocaleString('en-IN')}</p>
                       <span className={`text-[10px] font-semibold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
