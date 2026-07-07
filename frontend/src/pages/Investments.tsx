@@ -209,7 +209,7 @@ export const Investments: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 items-start">
         <div className="lg:col-span-2 bg-[#161b22] border border-gray-800 rounded-xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Invested Instruments</h2>
           <div className="space-y-3">
@@ -333,7 +333,7 @@ export const Investments: React.FC = () => {
         </div>
 
         {/* Asset Allocation Chart */}
-        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-6 flex flex-col justify-between">
+        <div className="bg-[#161b22] border border-gray-800 rounded-xl p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6 font-semibold">Asset Allocation</h2>
           <div className="h-60 flex justify-center">
             <ResponsiveContainer width="100%" height="100%">

@@ -6,6 +6,7 @@ export const Transactions: React.FC = () => {
   const { apiFetch } = useAuth();
   const [txs, setTxs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [investments, setInvestments] = useState<any[]>([]);
 
   // Helper helpers for current month dates (timezone-safe)
   const getFirstDayOfMonth = () => {
@@ -40,6 +41,7 @@ export const Transactions: React.FC = () => {
   const [paymentMode, setPaymentMode] = useState('UPI');
   const [account, setAccount] = useState('HDFC Savings Account');
   const [notes, setNotes] = useState('');
+  const [linkedInvestmentId, setLinkedInvestmentId] = useState('');
 
   // Import form states
   const [showImportForm, setShowImportForm] = useState(false);
@@ -64,6 +66,12 @@ export const Transactions: React.FC = () => {
     loadTransactions();
   }, [search, category, type, startDate, endDate]);
 
+  useEffect(() => {
+    apiFetch('/investments')
+      .then(setInvestments)
+      .catch((e) => console.error(e));
+  }, []);
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -78,6 +86,7 @@ export const Transactions: React.FC = () => {
           paymentMode,
           account,
           notes,
+          investmentId: txCategory === 'Investment' && linkedInvestmentId ? linkedInvestmentId : undefined,
         }),
       });
       setShowAddForm(false);
@@ -85,6 +94,7 @@ export const Transactions: React.FC = () => {
       setDescription('');
       setAmount('');
       setNotes('');
+      setLinkedInvestmentId('');
       loadTransactions();
     } catch (err) {
       alert(err || 'Failed to create transaction');
@@ -301,6 +311,11 @@ export const Transactions: React.FC = () => {
                       <span className="bg-gray-800 text-gray-300 text-xs px-2.5 py-1 rounded-full border border-gray-700">
                         {tx.category}
                       </span>
+                      {tx.investmentId && (
+                        <span className="ml-1.5 bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-1 rounded-full border border-emerald-500/30">
+                          {investments.find((inv) => inv.id === tx.investmentId)?.name || 'Linked'}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-gray-400">{tx.account}</td>
                     <td className="py-3 px-4 text-gray-400">{tx.paymentMode}</td>
@@ -395,6 +410,28 @@ export const Transactions: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {txCategory === 'Investment' && (
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Link to Investment (optional)</label>
+                  <select
+                    value={linkedInvestmentId}
+                    onChange={(e) => setLinkedInvestmentId(e.target.value)}
+                    className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="">None</option>
+                    {investments.map((inv) => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.name}
+                        {inv.isSip && inv.sipAmount ? ` (SIP ₹${Number(inv.sipAmount).toLocaleString('en-IN')}/mo)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Linking this transaction will add its amount to the investment's principal automatically.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
