@@ -65,6 +65,33 @@ export class InvestmentsService {
     });
   }
 
+  /**
+   * Adjusts an investment's principal/value/units by `amount` (positive to add a
+   * contribution, negative to reverse one). Used to keep an investment's principal
+   * in sync with linked transactions (e.g. a SIP installment payment).
+   */
+  async applyContribution(
+    userId: string,
+    investmentId: string,
+    amount: number,
+    client: Pick<typeof this.prisma, 'investment'> = this.prisma,
+  ) {
+    const inv = await client.investment.findFirst({ where: { id: investmentId, userId } });
+    if (!inv) {
+      throw new NotFoundException('Investment not found');
+    }
+
+    const principal = inv.principal + amount;
+    const value = inv.value + amount;
+    const units = inv.navOrPrice ? (inv.units ?? 0) + amount / inv.navOrPrice : inv.units;
+    const profit = value - principal;
+
+    return client.investment.update({
+      where: { id: investmentId },
+      data: { principal, value, units, profit },
+    });
+  }
+
   async remove(userId: string, id: string) {
     await this.findOne(userId, id);
     await this.prisma.investment.delete({

@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { InvestmentsService } from '../investments/investments.service.js';
 import { CreateTransactionDto, UpdateTransactionDto, ImportTransactionsDto } from './dto/transaction.dto.js';
 
 @Injectable()
 export class TransactionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private investmentsService: InvestmentsService,
+  ) {}
 
   async create(userId: string, dto: CreateTransactionDto) {
     // Duplicate check
@@ -22,22 +26,31 @@ export class TransactionsService {
       throw new BadRequestException('No account found for user');
     }
 
-    return this.prisma.transaction.create({
-      data: {
-        userId,
-        accountId: account.id,
-        date: new Date(dto.date),
-        description: dto.description,
-        category: dto.category,
-        subCategory: dto.subCategory,
-        amount: dto.amount,
-        type: dto.type,
-        paymentMode: dto.paymentMode,
-        tags: dto.tags || [],
-        notes: dto.notes,
-        recurring: dto.recurring || false,
-        attachments: dto.attachments || [],
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const transaction = await tx.transaction.create({
+        data: {
+          userId,
+          accountId: account.id,
+          date: new Date(dto.date),
+          description: dto.description,
+          category: dto.category,
+          subCategory: dto.subCategory,
+          amount: dto.amount,
+          type: dto.type,
+          paymentMode: dto.paymentMode,
+          tags: dto.tags || [],
+          notes: dto.notes,
+          recurring: dto.recurring || false,
+          attachments: dto.attachments || [],
+          investmentId: dto.investmentId,
+        },
+      });
+
+      if (dto.investmentId && dto.type === 'EXPENSE') {
+        await this.investmentsService.applyContribution(userId, dto.investmentId, dto.amount, tx);
+      }
+
+      return transaction;
     });
   }
 
@@ -109,32 +122,58 @@ export class TransactionsService {
   }
 
   async update(userId: string, id: string, dto: UpdateTransactionDto) {
-    await this.findOne(userId, id);
+    const existing = await this.findOne(userId, id);
 
-    return this.prisma.transaction.update({
-      where: { id },
-      data: {
-        date: dto.date ? new Date(dto.date) : undefined,
-        description: dto.description,
-        category: dto.category,
-        subCategory: dto.subCategory,
-        amount: dto.amount,
-        type: dto.type,
-        paymentMode: dto.paymentMode,
-        tags: dto.tags,
-        notes: dto.notes,
-        recurring: dto.recurring,
-        attachments: dto.attachments,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // Reverse the old contribution (if any) before applying the new one, so
+      // amount changes, re-linking, and un-linking all keep the investment in sync.
+      if (existing.investmentId && existing.type === 'EXPENSE') {
+        await this.investmentsService.applyContribution(userId, existing.investmentId, -existing.amount, tx);
+      }
+
+      const updated = await tx.transaction.update({
+        where: { id },
+        data: {
+          date: dto.date ? new Date(dto.date) : undefined,
+          description: dto.description,
+          category: dto.category,
+          subCategory: dto.subCategory,
+          amount: dto.amount,
+          type: dto.type,
+          paymentMode: dto.paymentMode,
+          tags: dto.tags,
+          notes: dto.notes,
+          recurring: dto.recurring,
+          attachments: dto.attachments,
+          investmentId: dto.investmentId !== undefined ? dto.investmentId : undefined,
+        },
+      });
+
+      const newInvestmentId = dto.investmentId !== undefined ? dto.investmentId : existing.investmentId;
+      const newType = dto.type ?? existing.type;
+      const newAmount = dto.amount ?? existing.amount;
+      if (newInvestmentId && newType === 'EXPENSE') {
+        await this.investmentsService.applyContribution(userId, newInvestmentId, newAmount, tx);
+      }
+
+      return updated;
     });
   }
 
   async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
-    await this.prisma.transaction.delete({
-      where: { id },
+    const existing = await this.findOne(userId, id);
+
+    return this.prisma.$transaction(async (tx) => {
+      if (existing.investmentId && existing.type === 'EXPENSE') {
+        await this.investmentsService.applyContribution(userId, existing.investmentId, -existing.amount, tx);
+      }
+
+      await tx.transaction.delete({
+        where: { id },
+      });
+
+      return { success: true };
     });
-    return { success: true };
   }
 
   async import(userId: string, dto: ImportTransactionsDto) {

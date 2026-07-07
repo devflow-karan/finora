@@ -51,6 +51,10 @@ export class CreateTransactionDto {
   @IsString({ each: true })
   @IsOptional()
   attachments?: string[];
+
+  @IsString()
+  @IsOptional()
+  investmentId?: string;
 }
 
 export class UpdateTransactionDto {
@@ -104,6 +108,10 @@ export class UpdateTransactionDto {
   @IsString({ each: true })
   @IsOptional()
   attachments?: string[];
+
+  @IsString()
+  @IsOptional()
+  investmentId?: string;
 }
 
 export class ImportTransactionsDto {
