@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Plus, Upload, Search, Trash2 } from 'lucide-react';
+import { Plus, Upload, Search, Trash2, Pencil } from 'lucide-react';
 
 export const Transactions: React.FC = () => {
   const { apiFetch } = useAuth();
@@ -31,8 +31,9 @@ export const Transactions: React.FC = () => {
   const [startDate, setStartDate] = useState(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState(getLastDayOfMonth());
 
-  // Add form states
+  // Add/Edit form states
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingTx, setEditingTx] = useState<any>(null);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -72,6 +73,18 @@ export const Transactions: React.FC = () => {
       .catch((e) => console.error(e));
   }, []);
 
+  const resetForm = () => {
+    setDate(new Date().toISOString().split('T')[0]);
+    setDescription('');
+    setAmount('');
+    setTxCategory('Groceries');
+    setTxType('EXPENSE');
+    setPaymentMode('UPI');
+    setAccount('HDFC Savings Account');
+    setNotes('');
+    setLinkedInvestmentId('');
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -90,14 +103,49 @@ export const Transactions: React.FC = () => {
         }),
       });
       setShowAddForm(false);
-      // Reset form
-      setDescription('');
-      setAmount('');
-      setNotes('');
-      setLinkedInvestmentId('');
+      resetForm();
       loadTransactions();
     } catch (err) {
       alert(err || 'Failed to create transaction');
+    }
+  };
+
+  const openEdit = (tx: any) => {
+    setEditingTx(tx);
+    setDate(new Date(tx.date).toISOString().split('T')[0]);
+    setDescription(tx.description);
+    setAmount(String(tx.amount));
+    setTxCategory(tx.category);
+    setTxType(tx.type);
+    setPaymentMode(tx.paymentMode);
+    setAccount(tx.account || '');
+    setNotes(tx.notes || '');
+    setLinkedInvestmentId(tx.investmentId || '');
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    try {
+      await apiFetch(`/transactions/${editingTx.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          date: new Date(date).toISOString(),
+          description,
+          category: txCategory,
+          amount: parseFloat(amount),
+          type: txType,
+          paymentMode,
+          account,
+          notes,
+          investmentId: txCategory === 'Investment' && linkedInvestmentId ? linkedInvestmentId : null,
+        }),
+      });
+      setEditingTx(null);
+      resetForm();
+      loadTransactions();
+    } catch (err) {
+      alert(err || 'Failed to update transaction');
     }
   };
 
@@ -324,6 +372,12 @@ export const Transactions: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-center">
                       <button
+                        onClick={() => openEdit(tx)}
+                        className="text-gray-500 hover:text-emerald-400 p-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(tx.id)}
                         className="text-gray-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-colors"
                       >
@@ -338,12 +392,12 @@ export const Transactions: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Record Modal */}
-      {showAddForm && (
+      {/* Add/Edit Record Modal */}
+      {(showAddForm || editingTx) && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-[#161b22] border border-gray-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
-            <h2 className="text-lg font-bold mb-4">Add Financial Record</h2>
-            <form onSubmit={handleAdd} className="space-y-4">
+            <h2 className="text-lg font-bold mb-4">{editingTx ? 'Edit Financial Record' : 'Add Financial Record'}</h2>
+            <form onSubmit={editingTx ? handleEditSave : handleAdd} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Date</label>
@@ -474,7 +528,11 @@ export const Transactions: React.FC = () => {
               <div className="flex justify-end space-x-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setEditingTx(null);
+                    resetForm();
+                  }}
                   className="bg-gray-850 hover:bg-gray-800 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-sm transition-all"
                 >
                   Cancel
@@ -483,7 +541,7 @@ export const Transactions: React.FC = () => {
                   type="submit"
                   className="bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2 rounded-lg text-sm transition-all"
                 >
-                  Create
+                  {editingTx ? 'Save Changes' : 'Create'}
                 </button>
               </div>
             </form>

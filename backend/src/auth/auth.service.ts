@@ -19,7 +19,8 @@ export class AuthService {
       throw new BadRequestException('Email already registered');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
+    const passwordHash = await bcrypt.hash(dto.password, saltRounds);
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,

@@ -17,20 +17,13 @@ export class TransactionsService {
       throw new BadRequestException('Potential duplicate transaction detected');
     }
 
-    // Get user's primary account
-    const account = await this.prisma.account.findFirst({
-      where: { userId },
-    });
-
-    if (!account) {
-      throw new BadRequestException('No account found for user');
-    }
+    const accountId = await this.resolveAccountId(userId, dto.account);
 
     return this.prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
         data: {
           userId,
-          accountId: account.id,
+          accountId,
           date: new Date(dto.date),
           description: dto.description,
           category: dto.category,
@@ -79,7 +72,7 @@ export class TransactionsService {
     }
 
     if (filters.account) {
-      where.account = filters.account;
+      where.account = { name: filters.account };
     }
 
     if (filters.type) {
@@ -104,25 +97,31 @@ export class TransactionsService {
       };
     }
 
-    return this.prisma.transaction.findMany({
+    const transactions = await this.prisma.transaction.findMany({
       where,
+      include: { account: { select: { name: true } } },
       // Return transactions in ascending creation order so daily view shows oldest->newest
       orderBy: { createdAt: 'desc' },
     });
+
+    return transactions.map(({ account, ...tx }) => ({ ...tx, account: account?.name }));
   }
 
   async findOne(userId: string, id: string) {
     const tx = await this.prisma.transaction.findFirst({
       where: { id, userId },
+      include: { account: { select: { name: true } } },
     });
     if (!tx) {
       throw new NotFoundException('Transaction not found');
     }
-    return tx;
+    const { account, ...rest } = tx;
+    return { ...rest, account: account?.name };
   }
 
   async update(userId: string, id: string, dto: UpdateTransactionDto) {
     const existing = await this.findOne(userId, id);
+    const accountId = dto.account !== undefined ? await this.resolveAccountId(userId, dto.account) : undefined;
 
     return this.prisma.$transaction(async (tx) => {
       // Reverse the old contribution (if any) before applying the new one, so
@@ -141,6 +140,7 @@ export class TransactionsService {
           amount: dto.amount,
           type: dto.type,
           paymentMode: dto.paymentMode,
+          accountId,
           tags: dto.tags,
           notes: dto.notes,
           recurring: dto.recurring,
@@ -158,6 +158,15 @@ export class TransactionsService {
 
       return updated;
     });
+  }
+
+  private async resolveAccountId(userId: string, name?: string): Promise<string> {
+    const accountName = name?.trim() || 'Primary Account';
+    let account = await this.prisma.account.findFirst({ where: { userId, name: accountName } });
+    if (!account) {
+      account = await this.prisma.account.create({ data: { userId, name: accountName } });
+    }
+    return account.id;
   }
 
   async remove(userId: string, id: string) {
@@ -179,6 +188,13 @@ export class TransactionsService {
   async import(userId: string, dto: ImportTransactionsDto) {
     const transactionsToInsert: any[] = [];
     let duplicatesSkipped = 0;
+    const accountIdByName = new Map<string, string>();
+    const resolveCachedAccountId = async (name: string): Promise<string> => {
+      if (!accountIdByName.has(name)) {
+        accountIdByName.set(name, await this.resolveAccountId(userId, name));
+      }
+      return accountIdByName.get(name)!;
+    };
 
     if (dto.format === 'CSV') {
       // Split lines and parse CSV
@@ -212,6 +228,8 @@ export class TransactionsService {
           continue;
         }
 
+        const accountId = await resolveCachedAccountId(account);
+
         transactionsToInsert.push({
           userId,
           date,
@@ -220,7 +238,7 @@ export class TransactionsService {
           amount,
           type,
           paymentMode,
-          account,
+          accountId,
           tags: [],
           attachments: [],
         });
@@ -277,6 +295,8 @@ export class TransactionsService {
           continue;
         }
 
+        const accountId = await resolveCachedAccountId(account);
+
         transactionsToInsert.push({
           userId,
           date: new Date(),
@@ -286,7 +306,7 @@ export class TransactionsService {
           amount,
           type: isExpense ? 'EXPENSE' : 'INCOME',
           paymentMode: 'UPI',
-          account,
+          accountId,
           tags: ['upi-import'],
           attachments: [],
         });
