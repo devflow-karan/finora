@@ -23,8 +23,19 @@ export class TransactionsController {
     @Query('type') type?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.txService.findAll(userId, { search, category, account, type, startDate, endDate });
+    return this.txService.findAll(userId, {
+      search,
+      category,
+      account,
+      type,
+      startDate,
+      endDate,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
   }
 
   @Get(':id')

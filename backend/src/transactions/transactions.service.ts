@@ -47,6 +47,16 @@ export class TransactionsService {
     });
   }
 
+  private parseStartOfDay(dateStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+  }
+
+  private parseEndOfDay(dateStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day, 23, 59, 59, 999);
+  }
+
   async findAll(
     userId: string,
     filters: {
@@ -56,6 +66,8 @@ export class TransactionsService {
       type?: string;
       startDate?: string;
       endDate?: string;
+      page?: number;
+      limit?: number;
     },
   ) {
     const where: any = { userId };
@@ -82,14 +94,14 @@ export class TransactionsService {
     if (filters.startDate || filters.endDate) {
       where.date = {};
       if (filters.startDate) {
-        where.date.gte = new Date(filters.startDate);
+        where.date.gte = this.parseStartOfDay(filters.startDate);
       }
       if (filters.endDate) {
-        where.date.lte = new Date(filters.endDate);
+        where.date.lte = this.parseEndOfDay(filters.endDate);
       }
     } else {
       const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       where.date = {
         gte: firstDay,
@@ -97,14 +109,30 @@ export class TransactionsService {
       };
     }
 
-    const transactions = await this.prisma.transaction.findMany({
-      where,
-      include: { account: { select: { name: true } } },
-      // Return transactions in ascending creation order so daily view shows oldest->newest
-      orderBy: { createdAt: 'desc' },
-    });
+    const page = Number.isFinite(filters.page) && filters.page! > 0 ? filters.page! : 1;
+    const limit = Number.isFinite(filters.limit)
+      ? Math.min(100, Math.max(1, filters.limit!))
+      : 10;
+    const skip = (page - 1) * limit;
 
-    return transactions.map(({ account, ...tx }) => ({ ...tx, account: account?.name }));
+    const [transactions, total] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where,
+        include: { account: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
+
+    return {
+      data: transactions.map(({ account, ...tx }) => ({ ...tx, account: account?.name })),
+      total,
+      page,
+      limit,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+    };
   }
 
   async findOne(userId: string, id: string) {
