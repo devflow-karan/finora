@@ -10,6 +10,7 @@ describe('InvestmentsService', () => {
     investment: {
       create: jest.fn().mockImplementation((args) => Promise.resolve({ id: 'test-id', ...args.data })),
       findMany: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
     },
   };
 
@@ -80,15 +81,17 @@ describe('InvestmentsService', () => {
 
       const summary = await service.getPortfolioSummary('user-id');
       expect(summary.totalMonthlySip).toBe(0);
+      expect(summary.items.data).toEqual([]);
     });
 
     it('sums sipAmount only across investments where isSip is true', async () => {
-      mockPrismaService.investment.findMany.mockResolvedValueOnce([
+      const investments = [
         {
           id: '1',
           type: 'MUTUAL_FUND',
           principal: 6000,
           value: 6100,
+          profit: 100,
           purchaseDate: new Date('2024-01-01'),
           isSip: true,
           sipAmount: 1500,
@@ -98,6 +101,7 @@ describe('InvestmentsService', () => {
           type: 'MUTUAL_FUND',
           principal: 8000,
           value: 8239,
+          profit: 239,
           purchaseDate: new Date('2024-01-01'),
           isSip: true,
           sipAmount: 1000,
@@ -107,14 +111,97 @@ describe('InvestmentsService', () => {
           type: 'FD',
           principal: 20000,
           value: 21000,
+          profit: 1000,
           purchaseDate: new Date('2023-01-01'),
           isSip: false,
           sipAmount: null,
         },
-      ]);
+      ];
+
+      mockPrismaService.investment.findMany
+        .mockResolvedValueOnce(investments)
+        .mockResolvedValueOnce(investments);
+      mockPrismaService.investment.count.mockResolvedValueOnce(3);
 
       const summary = await service.getPortfolioSummary('user-id');
       expect(summary.totalMonthlySip).toBe(2500);
+      expect(summary.items.total).toBe(3);
+    });
+
+    it('returns a bounded 2-decimal CAGR for same-day investments', async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const investments = [
+        {
+          id: '1',
+          type: 'SSY',
+          principal: 23,
+          value: 32,
+          profit: 9,
+          purchaseDate: today,
+          isSip: false,
+          sipAmount: null,
+        },
+      ];
+
+      mockPrismaService.investment.findMany
+        .mockResolvedValueOnce(investments)
+        .mockResolvedValueOnce(investments);
+      mockPrismaService.investment.count.mockResolvedValueOnce(1);
+
+      const summary = await service.getPortfolioSummary('user-id');
+      expect(summary.items.data[0].cagr).toBe(39.13);
+    });
+
+    it('filters investments by name, type, and profit status', async () => {
+      const investments = [
+        {
+          id: '1',
+          name: 'SBI Bluechip',
+          type: 'MUTUAL_FUND',
+          principal: 6000,
+          value: 6100,
+          profit: 100,
+          purchaseDate: new Date('2024-01-01'),
+          isSip: false,
+          sipAmount: null,
+        },
+        {
+          id: '2',
+          name: 'HDFC FD',
+          type: 'FD',
+          principal: 20000,
+          value: 19000,
+          profit: -1000,
+          purchaseDate: new Date('2023-01-01'),
+          isSip: false,
+          sipAmount: null,
+        },
+      ];
+
+      mockPrismaService.investment.findMany
+        .mockResolvedValueOnce(investments)
+        .mockResolvedValueOnce([investments[1]]);
+      mockPrismaService.investment.count.mockResolvedValueOnce(1);
+
+      const summary = await service.getPortfolioSummary('user-id', {
+        search: 'HDFC',
+        type: 'FD',
+        profitStatus: 'loss',
+      });
+
+      expect(mockPrismaService.investment.findMany).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            name: { contains: 'HDFC', mode: 'insensitive' },
+            type: 'FD',
+            profit: { lt: 0 },
+          }),
+        }),
+      );
+      expect(summary.items.data).toHaveLength(1);
+      expect(summary.items.data[0].name).toBe('HDFC FD');
     });
   });
 });

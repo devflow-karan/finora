@@ -7,7 +7,7 @@ export class CreateInvestmentDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsEnum(['MUTUAL_FUND', 'STOCK', 'GOLD', 'FD', 'EPF', 'PPF', 'NPS', 'CRYPTO'])
+  @IsEnum(['MUTUAL_FUND', 'STOCK', 'GOLD', 'FD', 'EPF', 'PPF', 'NPS', 'CRYPTO', 'SSY'])
   type: string;
 
   @IsNumber()
@@ -51,7 +51,7 @@ export class UpdateInvestmentDto {
 
   @IsString()
   @IsOptional()
-  @IsEnum(['MUTUAL_FUND', 'STOCK', 'GOLD', 'FD', 'EPF', 'PPF', 'NPS', 'CRYPTO'])
+  @IsEnum(['MUTUAL_FUND', 'STOCK', 'GOLD', 'FD', 'EPF', 'PPF', 'NPS', 'CRYPTO', 'SSY'])
   type?: string;
 
   @IsNumber()

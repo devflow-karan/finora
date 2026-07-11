@@ -1,12 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Plus, ArrowUpRight, Shield } from 'lucide-react';
+import { Plus, ArrowUpRight, Shield, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
+const DEFAULT_PAGE_SIZE = 10;
+
+const ASSET_TYPE_OPTIONS = [
+  { value: 'MUTUAL_FUND', label: 'Mutual Fund' },
+  { value: 'STOCK', label: 'Stock Equity' },
+  { value: 'GOLD', label: 'Gold (SGB/Physical)' },
+  { value: 'FD', label: 'Fixed Deposit (FD)' },
+  { value: 'PPF', label: 'PPF' },
+  { value: 'EPF', label: 'EPF' },
+  { value: 'NPS', label: 'NPS' },
+  { value: 'SSY', label: 'Sukanya Samriddhi Yojana (SSY)' },
+  { value: 'CRYPTO', label: 'Crypto' },
+];
+
+interface PaginatedItems {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+function parseItemsResponse(summary: any, page: number, pageSize: number): PaginatedItems {
+  const items = summary?.items;
+  if (items && typeof items === 'object' && Array.isArray(items.data)) {
+    return {
+      data: items.data,
+      total: items.total ?? items.data.length,
+      page: items.page ?? page,
+      limit: items.limit ?? pageSize,
+      totalPages: items.totalPages ?? Math.max(1, Math.ceil((items.total ?? items.data.length) / pageSize)),
+    };
+  }
+
+  if (Array.isArray(items)) {
+    const total = items.length;
+    const start = (page - 1) * pageSize;
+    return {
+      data: items.slice(start, start + pageSize),
+      total,
+      page,
+      limit: pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
+  }
+
+  return { data: [], total: 0, page, limit: pageSize, totalPages: 1 };
+}
 
 export const Investments: React.FC = () => {
   const { apiFetch } = useAuth();
   const [summary, setSummary] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [search, setSearch] = useState('');
+  const [assetType, setAssetType] = useState('');
+  const [profitStatus, setProfitStatus] = useState('');
 
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -28,11 +87,25 @@ export const Investments: React.FC = () => {
     }
   };
 
+  const buildSummaryQuery = useCallback(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (assetType) params.set('type', assetType);
+    if (profitStatus) params.set('profitStatus', profitStatus);
+    params.set('page', String(page));
+    params.set('limit', String(pageSize));
+    return `/investments/summary?${params.toString()}`;
+  }, [search, assetType, profitStatus, page, pageSize]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/investments/summary');
+      const data = await apiFetch(buildSummaryQuery());
+      const paginated = parseItemsResponse(data, page, pageSize);
       setSummary(data);
+      setItems(paginated.data);
+      setTotal(paginated.total);
+      setTotalPages(paginated.totalPages);
     } catch (e) {
       console.error(e);
     } finally {
@@ -42,7 +115,7 @@ export const Investments: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [search, assetType, profitStatus, page, pageSize]);
 
   // Quick value update state
   const [quickUpdateId, setQuickUpdateId] = useState<string | null>(null);
@@ -53,7 +126,7 @@ export const Investments: React.FC = () => {
     try {
       await apiFetch(`/investments/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ value: parseFloat(quickValue), profit: parseFloat(quickValue) - (summary.items.find((i: any) => i.id === id)?.principal || 0) }),
+        body: JSON.stringify({ value: parseFloat(quickValue), profit: parseFloat(quickValue) - (items.find((i: any) => i.id === id)?.principal || 0) }),
       });
       setQuickUpdateId(null);
       setQuickValue('');
@@ -149,6 +222,12 @@ export const Investments: React.FC = () => {
   }
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6b7280', '#06b6d4'];
+  const isFiltered = search || assetType || profitStatus;
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, total);
+  const filteredProfit = items.reduce((sum, item) => sum + item.profit, 0);
+  const filteredInvested = items.reduce((sum, item) => sum + item.principal, 0);
+  const filteredValue = items.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="flex-1 bg-[#0d0f14] text-white p-4 sm:p-6 lg:p-8 overflow-y-auto">
@@ -200,7 +279,7 @@ export const Investments: React.FC = () => {
           <div>
             <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Secured Ratio</span>
             <h3 className="text-2xl font-bold text-blue-400 mt-2">
-              {summary.allocation.find((a: any) => a.type === 'FD' || a.type === 'PPF' || a.type === 'EPF') ? 'Stable' : 'Aggressive'}
+              {summary.allocation.find((a: any) => a.type === 'FD' || a.type === 'PPF' || a.type === 'EPF' || a.type === 'SSY') ? 'Stable' : 'Aggressive'}
             </h3>
           </div>
           <div className="p-3 rounded-full bg-blue-500/10 text-blue-400">
@@ -211,9 +290,99 @@ export const Investments: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8 items-start">
         <div className="lg:col-span-2 bg-[#161b22] border border-gray-800 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Invested Instruments</h2>
+          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Invested Instruments</h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="relative sm:col-span-2">
+              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search by investment name..."
+                value={search}
+                onChange={(e) => {
+                  setPage(1);
+                  setSearch(e.target.value);
+                }}
+                className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-white placeholder-gray-500"
+              />
+            </div>
+            <select
+              value={assetType}
+              onChange={(e) => {
+                setPage(1);
+                setAssetType(e.target.value);
+              }}
+              className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-white"
+            >
+              <option value="">All Asset Types</option>
+              {ASSET_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <select
+              value={profitStatus}
+              onChange={(e) => {
+                setPage(1);
+                setProfitStatus(e.target.value);
+              }}
+              className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-white"
+            >
+              <option value="">All P/L Status</option>
+              <option value="profit">Profit Making</option>
+              <option value="loss">Loss Making</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            {(isFiltered || total > 0) && (
+              <div className={`flex flex-wrap items-center gap-3 flex-1 px-4 py-3 rounded-xl border text-sm ${
+                isFiltered ? 'bg-amber-500/5 border-amber-500/20' : 'bg-[#0d0f14] border-gray-850'
+              }`}>
+                <span className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                  {isFiltered ? 'Filtered' : 'All'} · {rangeStart}-{rangeEnd} of {total} asset{total !== 1 ? 's' : ''}
+                </span>
+                {isFiltered && total > 0 && (
+                  <>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-gray-500 text-xs">Invested</span>
+                      <span className="font-bold text-white">₹{filteredInvested.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-gray-500 text-xs">Value</span>
+                      <span className="font-bold text-white">₹{filteredValue.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-gray-500 text-xs">P/L</span>
+                      <span className={`font-bold ${filteredProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {filteredProfit >= 0 ? '+' : ''}₹{filteredProfit.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {isFiltered && (
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setAssetType('');
+                  setProfitStatus('');
+                  setPage(1);
+                }}
+                className="bg-gray-800/40 hover:bg-gray-800 hover:text-white text-gray-400 px-4 py-2 rounded-lg text-sm transition-all border border-gray-800 whitespace-nowrap"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+
           <div className="space-y-3">
-            {summary.items.map((item: any) => (
+            {items.length === 0 ? (
+              <div className="py-10 text-center text-gray-500 text-sm">
+                No investments found for the selected filters.
+              </div>
+            ) : (
+            items.map((item: any) => (
               <div key={item.id} className="p-4 bg-[#0d0f14] border border-gray-850 rounded-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="min-w-0 sm:flex-1 sm:pr-3">
@@ -236,7 +405,7 @@ export const Investments: React.FC = () => {
                     <div className="text-right">
                       <p className="font-bold text-sm text-white">₹{item.value.toLocaleString('en-IN')}</p>
                       <span className={`text-[10px] font-semibold ${item.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {item.profit >= 0 ? '+' : ''}₹{item.profit.toLocaleString('en-IN')} · {item.cagr}% CAGR
+                        {item.profit >= 0 ? '+' : ''}₹{item.profit.toLocaleString('en-IN')} · {Number(item.cagr).toFixed(2)}% CAGR
                       </span>
                     </div>
                     <div className="flex flex-col space-y-1">
@@ -328,8 +497,51 @@ export const Investments: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))}
+            ))
+            )}
           </div>
+
+          {total > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-gray-800 mt-4 pt-4">
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <span>Rows per page</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPage(1);
+                    setPageSize(Number(e.target.value));
+                  }}
+                  className="bg-[#0d0f14] border border-gray-850 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-emerald-500"
+                >
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 text-sm text-gray-400">
+                <span>Page {page} of {totalPages}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    className="p-1.5 rounded-lg border border-gray-850 text-gray-400 hover:text-white hover:bg-gray-800/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    className="p-1.5 rounded-lg border border-gray-850 text-gray-400 hover:text-white hover:bg-gray-800/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Asset Allocation Chart */}
@@ -392,14 +604,10 @@ export const Investments: React.FC = () => {
                     onChange={(e) => handleTypeChange(e.target.value)}
                     className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="MUTUAL_FUND">Mutual Fund</option>
-                    <option value="STOCK">Stock Equity</option>
-                    <option value="GOLD">Gold (SGB/Physical)</option>
-                    <option value="FD">Fixed Deposit (FD)</option>
-                    <option value="PPF">PPF</option>
-                    <option value="EPF">EPF</option>
-                    <option value="NPS">NPS</option>
-                    <option value="CRYPTO">Crypto</option>
+                    <option value="">Select asset type</option>
+                    {ASSET_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

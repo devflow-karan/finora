@@ -95,7 +95,7 @@ export class DashboardService {
 
     // 8. Trends & Charts
     const expenseTrend = await this.getCategoryBreakdown(userId, currentMonthStart, currentMonthEnd);
-    const cashFlowTrend = await this.getMonthlyCashFlowTrend(userId);
+    const cashFlowTrend = await this.getWeeklyCashFlowTrend(userId);
 
     return {
       cards: {
@@ -142,52 +142,88 @@ export class DashboardService {
     }));
   }
 
-  private async getMonthlyCashFlowTrend(userId: string) {
+  private toDateKey(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  private async getWeeklyCashFlowTrend(userId: string) {
     const transactions = await this.prisma.transaction.findMany({
       where: { userId },
       orderBy: { date: 'asc' },
     });
 
-    const monthlyData: Record<string, { income: number; expense: number; netWorthEstimate: number }> = {};
-    let cumulativeBalance = 0;
-
-    // Estimate cumulative investments over time
     const investments = await this.prisma.investment.findMany({
       where: { userId },
     });
     const totalInvestments = investments.reduce((sum, inv) => sum + inv.value, 0);
 
-    // Estimate cumulative loans over time
     const loans = await this.prisma.loan.findMany({
       where: { userId },
     });
     const totalLoans = loans.reduce((sum, loan) => sum + loan.outstanding, 0);
 
-    for (const tx of transactions) {
-      const txDate = new Date(tx.date);
-      const monthKey = txDate.toLocaleString('default', { month: 'short', year: '2-digit' });
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - 6);
+    weekStart.setHours(0, 0, 0, 0);
 
-      if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { income: 0, expense: 0, netWorthEstimate: 0 };
+    const dailyStats: Record<string, { income: number; expense: number }> = {};
+    const endOfDayBalance: Record<string, number> = {};
+    let runningBalance = 0;
+
+    for (const tx of transactions) {
+      const dateKey = this.toDateKey(new Date(tx.date));
+
+      if (!dailyStats[dateKey]) {
+        dailyStats[dateKey] = { income: 0, expense: 0 };
       }
 
       if (tx.type === 'INCOME') {
-        monthlyData[monthKey].income += tx.amount;
-        cumulativeBalance += tx.amount;
+        dailyStats[dateKey].income += tx.amount;
+        runningBalance += tx.amount;
       } else {
-        monthlyData[monthKey].expense += tx.amount;
-        cumulativeBalance -= tx.amount;
+        dailyStats[dateKey].expense += tx.amount;
+        runningBalance -= tx.amount;
       }
 
-      // Estimate net worth at each step
-      monthlyData[monthKey].netWorthEstimate = cumulativeBalance + totalInvestments - totalLoans;
+      endOfDayBalance[dateKey] = runningBalance;
     }
 
-    return Object.keys(monthlyData).map((month) => ({
-      month,
-      income: Number(monthlyData[month].income.toFixed(2)),
-      expense: Number(monthlyData[month].expense.toFixed(2)),
-      netWorth: Number(monthlyData[month].netWorthEstimate.toFixed(2)),
-    }));
+    let carryBalance = 0;
+    for (const tx of transactions) {
+      const txDate = new Date(tx.date);
+      if (txDate < weekStart) {
+        if (tx.type === 'INCOME') {
+          carryBalance += tx.amount;
+        } else {
+          carryBalance -= tx.amount;
+        }
+      }
+    }
+
+    const result: { day: string; income: number; expense: number; netWorth: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      const dateKey = this.toDateKey(day);
+
+      if (endOfDayBalance[dateKey] !== undefined) {
+        carryBalance = endOfDayBalance[dateKey];
+      }
+
+      const stats = dailyStats[dateKey] || { income: 0, expense: 0 };
+      result.push({
+        day: day.toLocaleString('default', { weekday: 'short', month: 'short', day: 'numeric' }),
+        income: Number(stats.income.toFixed(2)),
+        expense: Number(stats.expense.toFixed(2)),
+        netWorth: Number((carryBalance + totalInvestments - totalLoans).toFixed(2)),
+      });
+    }
+
+    return result;
   }
 }

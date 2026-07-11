@@ -111,7 +111,7 @@ model Investment {
   userId       String
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
-  type         String         // 'MUTUAL_FUND' | 'STOCK' | 'GOLD' | 'FD' | 'EPF' | 'PPF' | 'NPS' | 'CRYPTO'
+  type         String         // 'MUTUAL_FUND' | 'STOCK' | 'GOLD' | 'FD' | 'EPF' | 'PPF' | 'NPS' | 'CRYPTO' | 'SSY'
   principal    Float
   units        Float?
   navOrPrice   Float?

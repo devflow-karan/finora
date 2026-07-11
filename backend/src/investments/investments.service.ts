@@ -3,6 +3,14 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateInvestmentDto, UpdateInvestmentDto } from './dto/investment.dto.js';
 import { Investment } from '@prisma/client';
 
+export interface InvestmentSummaryFilters {
+  search?: string;
+  type?: string;
+  profitStatus?: string;
+  page?: number;
+  limit?: number;
+}
+
 @Injectable()
 export class InvestmentsService {
   constructor(private prisma: PrismaService) {}
@@ -100,10 +108,15 @@ export class InvestmentsService {
     return { success: true };
   }
 
-  async getPortfolioSummary(userId: string) {
+  async getPortfolioSummary(userId: string, filters: InvestmentSummaryFilters = {}) {
     const investments = await this.prisma.investment.findMany({
       where: { userId },
     });
+
+    const page = Number.isFinite(filters.page) && filters.page! > 0 ? filters.page! : 1;
+    const limit = Number.isFinite(filters.limit)
+      ? Math.min(100, Math.max(1, filters.limit!))
+      : 10;
 
     if (investments.length === 0) {
       return {
@@ -114,7 +127,13 @@ export class InvestmentsService {
         portfolioXirr: 0,
         totalMonthlySip: 0,
         allocation: [],
-        items: [],
+        items: {
+          data: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 1,
+        },
       };
     }
 
@@ -123,7 +142,7 @@ export class InvestmentsService {
     let totalMonthlySip = 0;
 
     const allocationMap: Record<string, number> = {};
-    const items = investments.map((inv: Investment) => {
+    for (const inv of investments) {
       totalInvested += inv.principal;
       totalValue += inv.value;
 
@@ -132,20 +151,25 @@ export class InvestmentsService {
       }
 
       allocationMap[inv.type] = (allocationMap[inv.type] || 0) + inv.value;
+    }
 
-      // CAGR calculation
-      const days = (new Date().getTime() - inv.purchaseDate.getTime()) / (1000 * 60 * 60 * 24);
-      const years = days / 365.25;
-      let cagr = 0;
-      if (years > 0 && inv.principal > 0) {
-        cagr = (Math.pow(inv.value / inv.principal, 1 / years) - 1) * 100;
-      }
+    const itemWhere = this.buildItemWhere(userId, filters);
+    const skip = (page - 1) * limit;
 
-      return {
-        ...inv,
-        cagr: isFinite(cagr) ? Number(cagr.toFixed(2)) : 0,
-      };
-    });
+    const [pageInvestments, filteredTotal] = await Promise.all([
+      this.prisma.investment.findMany({
+        where: itemWhere,
+        orderBy: { purchaseDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.investment.count({ where: itemWhere }),
+    ]);
+
+    const items = pageInvestments.map((inv: Investment) => ({
+      ...inv,
+      cagr: this.calculateCagr(inv.principal, inv.value, inv.purchaseDate),
+    }));
 
     const totalProfit = totalValue - totalInvested;
     const profitPercentage = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
@@ -175,8 +199,59 @@ export class InvestmentsService {
       portfolioXirr: Number(portfolioXirr.toFixed(2)),
       totalMonthlySip,
       allocation,
-      items,
+      items: {
+        data: items,
+        total: filteredTotal,
+        page,
+        limit,
+        totalPages: filteredTotal > 0 ? Math.ceil(filteredTotal / limit) : 1,
+      },
     };
+  }
+
+  private buildItemWhere(userId: string, filters: InvestmentSummaryFilters) {
+    const where: {
+      userId: string;
+      name?: { contains: string; mode: 'insensitive' };
+      type?: string;
+      profit?: { gte?: number; lt?: number };
+    } = { userId };
+
+    if (filters.search?.trim()) {
+      where.name = { contains: filters.search.trim(), mode: 'insensitive' };
+    }
+
+    if (filters.type) {
+      where.type = filters.type;
+    }
+
+    if (filters.profitStatus === 'profit') {
+      where.profit = { gte: 0 };
+    } else if (filters.profitStatus === 'loss') {
+      where.profit = { lt: 0 };
+    }
+
+    return where;
+  }
+
+  private calculateCagr(principal: number, value: number, purchaseDate: Date): number {
+    if (principal <= 0 || value <= 0) return 0;
+
+    const days = (Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (days <= 0) return 0;
+
+    const years = days / 365.25;
+    const minYearsForCagr = 30 / 365.25;
+
+    let rate: number;
+    if (years >= minYearsForCagr) {
+      rate = (Math.pow(value / principal, 1 / years) - 1) * 100;
+    } else {
+      rate = (value / principal - 1) * 100;
+    }
+
+    if (!isFinite(rate) || Math.abs(rate) > 9999.99) return 0;
+    return Number(rate.toFixed(2));
   }
 
   private calculateXIRR(payments: { amount: number; date: Date }[]): number {

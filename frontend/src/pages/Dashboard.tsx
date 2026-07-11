@@ -145,7 +145,7 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         {/* Net Worth Growth */}
         <div className="lg:col-span-2 bg-[#161b22] border border-gray-800 rounded-xl p-6">
-          <h2 className="text-base font-bold mb-6">Net Worth & Cash Flow Growth</h2>
+          <h2 className="text-base font-bold mb-6">Net Worth & Cash Flow (Last 7 Days)</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={charts.cashFlowTrend}>
@@ -156,7 +156,7 @@ export const Dashboard: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-                <XAxis dataKey="month" stroke="#8b949e" fontSize={11} />
+                <XAxis dataKey="day" stroke="#8b949e" fontSize={11} />
                 <YAxis stroke="#8b949e" fontSize={11} />
                 <Tooltip
                   contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d' }}

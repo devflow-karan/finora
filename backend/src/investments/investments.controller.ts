@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { GetUserId } from '../auth/get-user.decorator.js';
 import { InvestmentsService } from './investments.service.js';
@@ -20,8 +20,21 @@ export class InvestmentsController {
   }
 
   @Get('summary')
-  getSummary(@GetUserId() userId: string) {
-    return this.invService.getPortfolioSummary(userId);
+  getSummary(
+    @GetUserId() userId: string,
+    @Query('search') search?: string,
+    @Query('type') type?: string,
+    @Query('profitStatus') profitStatus?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.invService.getPortfolioSummary(userId, {
+      search,
+      type,
+      profitStatus,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Get(':id')
