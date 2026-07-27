@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Plus, Upload, Search, Trash2, Pencil, AlertCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Upload, Download, Search, Trash2, Pencil, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Wallet } from 'lucide-react';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const DEFAULT_PAGE_SIZE = 10;
@@ -50,7 +50,7 @@ function parseTransactionsResponse(
 }
 
 export const Transactions: React.FC = () => {
-  const { apiFetch } = useAuth();
+  const { apiFetch, accessToken } = useAuth();
   const [txs, setTxs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +83,15 @@ export const Transactions: React.FC = () => {
   const [startDate, setStartDate] = useState(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState(getLastDayOfMonth());
 
+  // Account states
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [accountFilter, setAccountFilter] = useState('');
+  const [showNewAccountInput, setShowNewAccountInput] = useState(false);
+  const [newAccountName, setNewAccountName] = useState('');
+  const [showManageAccounts, setShowManageAccounts] = useState(false);
+  const [editingAccountBalances, setEditingAccountBalances] = useState<{ [id: string]: number }>({});
+
+
   // Add/Edit form states
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingTx, setEditingTx] = useState<any>(null);
@@ -106,12 +115,14 @@ export const Transactions: React.FC = () => {
     if (search) params.set('search', search);
     if (category) params.set('category', category);
     if (type) params.set('type', type);
+    if (accountFilter) params.set('account', accountFilter);
     if (startDate) params.set('startDate', startDate);
     if (endDate) params.set('endDate', endDate);
     params.set('page', String(page));
     params.set('limit', String(pageSize));
     return `/transactions?${params.toString()}`;
-  }, [search, category, type, startDate, endDate, page, pageSize]);
+  }, [search, category, type, accountFilter, startDate, endDate, page, pageSize]);
+
 
   const isDateInFilterRange = (txDate: string) => {
     const d = txDate.split('T')[0];
@@ -144,15 +155,28 @@ export const Transactions: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    loadTransactions();
-  }, [search, category, type, startDate, endDate, page, pageSize]);
+  const loadAccounts = () => {
+    apiFetch('/accounts')
+      .then((data) => {
+        setAccounts(data);
+        if (data.length > 0 && !account) {
+          setAccount(data[0].name);
+        }
+      })
+      .catch((e) => console.error(e));
+  };
 
   useEffect(() => {
+    loadTransactions();
+  }, [search, category, type, accountFilter, startDate, endDate, page, pageSize]);
+
+  useEffect(() => {
+    loadAccounts();
     apiFetch('/investments')
       .then(setInvestments)
       .catch((e) => console.error(e));
   }, []);
+
 
   const resetForm = () => {
     setDate(new Date().toISOString().split('T')[0]);
@@ -161,14 +185,18 @@ export const Transactions: React.FC = () => {
     setTxCategory('Groceries');
     setTxType('EXPENSE');
     setPaymentMode('UPI');
-    setAccount('HDFC Savings Account');
+    setAccount(accounts[0]?.name || 'HDFC Savings Account');
     setNotes('');
     setLinkedInvestmentId('');
+    setShowNewAccountInput(false);
+    setNewAccountName('');
   };
+
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const actualAccount = showNewAccountInput ? newAccountName : account;
       await apiFetch('/transactions', {
         method: 'POST',
         body: JSON.stringify({
@@ -178,7 +206,7 @@ export const Transactions: React.FC = () => {
           amount: parseFloat(amount),
           type: txType,
           paymentMode,
-          account,
+          account: actualAccount,
           notes,
           investmentId: txCategory === 'Investment' && linkedInvestmentId ? linkedInvestmentId : undefined,
         }),
@@ -189,10 +217,12 @@ export const Transactions: React.FC = () => {
       notifyIfOutsideFilter(savedDate, 'saved');
       setPage(1);
       loadTransactions();
+      loadAccounts();
     } catch (err) {
       alert(err || 'Failed to create transaction');
     }
   };
+
 
   const openEdit = (tx: any) => {
     setEditingTx(tx);
@@ -211,6 +241,7 @@ export const Transactions: React.FC = () => {
     e.preventDefault();
     if (!editingTx) return;
     try {
+      const actualAccount = showNewAccountInput ? newAccountName : account;
       await apiFetch(`/transactions/${editingTx.id}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -220,7 +251,7 @@ export const Transactions: React.FC = () => {
           amount: parseFloat(amount),
           type: txType,
           paymentMode,
-          account,
+          account: actualAccount,
           notes,
           investmentId: txCategory === 'Investment' && linkedInvestmentId ? linkedInvestmentId : null,
         }),
@@ -230,10 +261,12 @@ export const Transactions: React.FC = () => {
       resetForm();
       notifyIfOutsideFilter(savedDate, 'updated');
       loadTransactions();
+      loadAccounts();
     } catch (err) {
       alert(err || 'Failed to update transaction');
     }
   };
+
 
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,6 +291,40 @@ export const Transactions: React.FC = () => {
     }
   };
 
+  const handleDownloadCsv = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (category) params.set('category', category);
+      if (type) params.set('type', type);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/transactions/export?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export transactions CSV');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download CSV');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this transaction?')) return;
     try {
@@ -272,6 +339,21 @@ export const Transactions: React.FC = () => {
     }
   };
 
+  const handleUpdateOpeningBalance = async (id: string, newBalance: number) => {
+    try {
+      await apiFetch(`/accounts/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          openingBalance: newBalance,
+        }),
+      });
+      loadAccounts();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update opening balance');
+    }
+  };
+
+
   return (
     <div className="flex-1 bg-[#0d0f14] text-white p-4 sm:p-6 lg:p-8 overflow-y-auto">
       {/* Header */}
@@ -281,6 +363,20 @@ export const Transactions: React.FC = () => {
           <p className="text-gray-400 text-sm mt-1">Search, audit, and batch import statement logs.</p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setShowManageAccounts(true)}
+            className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"
+          >
+            <Wallet className="w-4 h-4" />
+            <span>Manage Accounts</span>
+          </button>
+          <button
+            onClick={handleDownloadCsv}
+            className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download CSV</span>
+          </button>
           <button
             onClick={() => setShowImportForm(true)}
             className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"
@@ -297,6 +393,7 @@ export const Transactions: React.FC = () => {
           </button>
         </div>
       </div>
+
 
       {error && (
         <div className="mb-6 flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm">
@@ -316,7 +413,7 @@ export const Transactions: React.FC = () => {
       )}
 
       {/* Filters bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-3.5 w-4 h-4 text-gray-500" />
           <input
@@ -365,6 +462,23 @@ export const Transactions: React.FC = () => {
           </select>
         </div>
         <div>
+          <select
+            value={accountFilter}
+            onChange={(e) => {
+              setPage(1);
+              setAccountFilter(e.target.value);
+            }}
+            className="w-full bg-[#161b22] border border-gray-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-white"
+          >
+            <option value="">All Accounts</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.name}>
+                {acc.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <input
             type="date"
             value={startDate}
@@ -391,6 +505,7 @@ export const Transactions: React.FC = () => {
             setSearch('');
             setCategory('');
             setType('');
+            setAccountFilter('');
             setPage(1);
             setStartDate(getFirstDayOfMonth());
             setEndDate(getLastDayOfMonth());
@@ -400,6 +515,7 @@ export const Transactions: React.FC = () => {
           Reset Filters
         </button>
       </div>
+
 
       {/* Filter Summary Bar */}
       {!loading && !error && total > 0 && (() => {
@@ -489,7 +605,10 @@ export const Transactions: React.FC = () => {
                         year: 'numeric',
                       })}
                     </td>
-                    <td className="py-3 px-4 font-medium text-white">{tx.description}</td>
+                    <td className="py-3 px-4 font-medium text-white">
+                      <div>{tx.description}</div>
+                      {tx.notes && <div className="text-xs text-gray-500 font-normal mt-0.5">{tx.notes}</div>}
+                    </td>
                     <td className="py-3 px-4">
                       <span className="bg-gray-800 text-gray-300 text-xs px-2.5 py-1 rounded-full border border-gray-700">
                         {tx.category}
@@ -685,14 +804,48 @@ export const Transactions: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">Account</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., HDFC Account"
-                    value={account}
-                    onChange={(e) => setAccount(e.target.value)}
-                    className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                    required
-                  />
+                  {showNewAccountInput ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="New Account Name"
+                        value={newAccountName}
+                        onChange={(e) => setNewAccountName(e.target.value)}
+                        className="flex-1 bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNewAccountInput(false);
+                          setAccount(accounts[0]?.name || 'HDFC Savings Account');
+                        }}
+                        className="text-xs text-gray-400 hover:text-white px-2 border border-gray-800 rounded-lg bg-gray-850 hover:bg-gray-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={account}
+                      onChange={(e) => {
+                        if (e.target.value === 'CREATE_NEW') {
+                          setShowNewAccountInput(true);
+                          setNewAccountName('');
+                        } else {
+                          setAccount(e.target.value);
+                        }
+                      }}
+                      className="w-full bg-[#0d0f14] border border-gray-850 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      {accounts.map((acc) => (
+                        <option key={acc.id} value={acc.name}>
+                          {acc.name}
+                        </option>
+                      ))}
+                      <option value="CREATE_NEW">+ Create New...</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -783,6 +936,54 @@ export const Transactions: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Manage Accounts Modal */}
+      {showManageAccounts && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#161b22] border border-gray-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Manage Accounts</h2>
+              <button
+                onClick={() => setShowManageAccounts(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Configure opening balances for your accounts. Changes will immediately update your Net Worth and Balance.
+            </p>
+            <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+              {accounts.map((acc) => (
+                <div key={acc.id} className="flex items-center justify-between border-b border-gray-800 pb-3 last:border-0 last:pb-0">
+                  <div>
+                    <h3 className="font-semibold text-sm text-white">{acc.name}</h3>
+                    <p className="text-xs text-gray-400">Currency: {acc.currency}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">Opening Balance:</span>
+                    <input
+                      type="number"
+                      value={editingAccountBalances[acc.id] !== undefined ? editingAccountBalances[acc.id] : acc.openingBalance}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setEditingAccountBalances((prev) => ({ ...prev, [acc.id]: isNaN(val) ? 0 : val }));
+                      }}
+                      className="w-28 bg-[#0d0f14] border border-gray-850 rounded-lg px-2 py-1 text-sm text-white text-right focus:outline-none focus:border-emerald-500"
+                    />
+                    <button
+                      onClick={() => handleUpdateOpeningBalance(acc.id, editingAccountBalances[acc.id] ?? acc.openingBalance)}
+                      className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs px-3 py-1.5 rounded-lg transition-all"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

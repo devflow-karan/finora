@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsDateString, IsEnum } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsDateString,
+  IsEnum,
+} from 'class-validator';
 
 export class CreateGoalDto {
   @IsString()
@@ -7,7 +14,16 @@ export class CreateGoalDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsEnum(['EMERGENCY_FUND', 'HOUSE', 'CHILD_EDUCATION', 'TRAVEL', 'RETIREMENT', 'VEHICLE', 'WEDDING', 'CUSTOM'])
+  @IsEnum([
+    'EMERGENCY_FUND',
+    'HOUSE',
+    'CHILD_EDUCATION',
+    'TRAVEL',
+    'RETIREMENT',
+    'VEHICLE',
+    'WEDDING',
+    'CUSTOM',
+  ])
   type: string;
 
   @IsNumber()
@@ -30,7 +46,16 @@ export class UpdateGoalDto {
 
   @IsString()
   @IsOptional()
-  @IsEnum(['EMERGENCY_FUND', 'HOUSE', 'CHILD_EDUCATION', 'TRAVEL', 'RETIREMENT', 'VEHICLE', 'WEDDING', 'CUSTOM'])
+  @IsEnum([
+    'EMERGENCY_FUND',
+    'HOUSE',
+    'CHILD_EDUCATION',
+    'TRAVEL',
+    'RETIREMENT',
+    'VEHICLE',
+    'WEDDING',
+    'CUSTOM',
+  ])
   type?: string;
 
   @IsNumber()

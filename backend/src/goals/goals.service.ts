@@ -28,9 +28,15 @@ export class GoalsService {
 
     return goals.map((goal) => {
       // Sum value of all investments mapped to this goal
-      const investmentValue = goal.investments.reduce((sum, inv) => sum + inv.value, 0);
+      const investmentValue = goal.investments.reduce(
+        (sum, inv) => sum + inv.value,
+        0,
+      );
       const totalAccumulated = goal.currentAmount + investmentValue;
-      const progressPct = goal.targetAmount > 0 ? (totalAccumulated / goal.targetAmount) * 100 : 0;
+      const progressPct =
+        goal.targetAmount > 0
+          ? (totalAccumulated / goal.targetAmount) * 100
+          : 0;
 
       return {
         ...goal,
@@ -50,9 +56,13 @@ export class GoalsService {
       throw new NotFoundException('Financial goal not found');
     }
 
-    const investmentValue = goal.investments.reduce((sum, inv) => sum + inv.value, 0);
+    const investmentValue = goal.investments.reduce(
+      (sum, inv) => sum + inv.value,
+      0,
+    );
     const totalAccumulated = goal.currentAmount + investmentValue;
-    const progressPct = goal.targetAmount > 0 ? (totalAccumulated / goal.targetAmount) * 100 : 0;
+    const progressPct =
+      goal.targetAmount > 0 ? (totalAccumulated / goal.targetAmount) * 100 : 0;
 
     return {
       ...goal,

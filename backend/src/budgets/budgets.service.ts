@@ -60,8 +60,19 @@ export class BudgetsService {
 
   async getBudgetPerformance(userId: string, dateStr?: string) {
     const targetDate = dateStr ? new Date(dateStr) : new Date();
-    const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1);
-    const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
+    const startOfMonth = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      1,
+    );
+    const endOfMonth = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
     // Fetch budgets active in this month
     const budgets = await this.prisma.budget.findMany({
@@ -87,7 +98,8 @@ export class BudgetsService {
     // Group actual expenses by category
     const categoryExpenses: Record<string, number> = {};
     for (const exp of expenses) {
-      categoryExpenses[exp.category] = (categoryExpenses[exp.category] || 0) + exp.amount;
+      categoryExpenses[exp.category] =
+        (categoryExpenses[exp.category] || 0) + exp.amount;
     }
 
     // Build comparison list

@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { GetUserId } from '../auth/get-user.decorator.js';
 import { InvestmentsService } from './investments.service.js';
-import { CreateInvestmentDto, UpdateInvestmentDto } from './dto/investment.dto.js';
+import {
+  CreateInvestmentDto,
+  UpdateInvestmentDto,
+} from './dto/investment.dto.js';
 
 @Controller('investments')
 @UseGuards(JwtAuthGuard)

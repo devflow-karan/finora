@@ -1,4 +1,13 @@
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsDateString, IsEnum, IsBoolean, ValidateIf } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsDateString,
+  IsEnum,
+  IsBoolean,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateInvestmentDto {
   @IsString()
@@ -7,7 +16,17 @@ export class CreateInvestmentDto {
 
   @IsString()
   @IsNotEmpty()
-  @IsEnum(['MUTUAL_FUND', 'STOCK', 'GOLD', 'FD', 'EPF', 'PPF', 'NPS', 'CRYPTO', 'SSY'])
+  @IsEnum([
+    'MUTUAL_FUND',
+    'STOCK',
+    'GOLD',
+    'FD',
+    'EPF',
+    'PPF',
+    'NPS',
+    'CRYPTO',
+    'SSY',
+  ])
   type: string;
 
   @IsNumber()
@@ -51,7 +70,17 @@ export class UpdateInvestmentDto {
 
   @IsString()
   @IsOptional()
-  @IsEnum(['MUTUAL_FUND', 'STOCK', 'GOLD', 'FD', 'EPF', 'PPF', 'NPS', 'CRYPTO', 'SSY'])
+  @IsEnum([
+    'MUTUAL_FUND',
+    'STOCK',
+    'GOLD',
+    'FD',
+    'EPF',
+    'PPF',
+    'NPS',
+    'CRYPTO',
+    'SSY',
+  ])
   type?: string;
 
   @IsNumber()

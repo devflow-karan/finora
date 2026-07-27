@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CreateInvestmentDto, UpdateInvestmentDto } from './dto/investment.dto.js';
+import {
+  CreateInvestmentDto,
+  UpdateInvestmentDto,
+} from './dto/investment.dto.js';
 import { Investment } from '@prisma/client';
 
 export interface InvestmentSummaryFilters {
@@ -58,7 +61,8 @@ export class InvestmentsService {
   async update(userId: string, id: string, dto: UpdateInvestmentDto) {
     const inv = await this.findOne(userId, id);
 
-    const principal = dto.principal !== undefined ? dto.principal : inv.principal;
+    const principal =
+      dto.principal !== undefined ? dto.principal : inv.principal;
     const value = dto.value !== undefined ? dto.value : inv.value;
     const profit = value - principal;
 
@@ -84,14 +88,18 @@ export class InvestmentsService {
     amount: number,
     client: Pick<typeof this.prisma, 'investment'> = this.prisma,
   ) {
-    const inv = await client.investment.findFirst({ where: { id: investmentId, userId } });
+    const inv = await client.investment.findFirst({
+      where: { id: investmentId, userId },
+    });
     if (!inv) {
       throw new NotFoundException('Investment not found');
     }
 
     const principal = inv.principal + amount;
     const value = inv.value + amount;
-    const units = inv.navOrPrice ? (inv.units ?? 0) + amount / inv.navOrPrice : inv.units;
+    const units = inv.navOrPrice
+      ? (inv.units ?? 0) + amount / inv.navOrPrice
+      : inv.units;
     const profit = value - principal;
 
     return client.investment.update({
@@ -108,12 +116,16 @@ export class InvestmentsService {
     return { success: true };
   }
 
-  async getPortfolioSummary(userId: string, filters: InvestmentSummaryFilters = {}) {
+  async getPortfolioSummary(
+    userId: string,
+    filters: InvestmentSummaryFilters = {},
+  ) {
     const investments = await this.prisma.investment.findMany({
       where: { userId },
     });
 
-    const page = Number.isFinite(filters.page) && filters.page! > 0 ? filters.page! : 1;
+    const page =
+      Number.isFinite(filters.page) && filters.page! > 0 ? filters.page! : 1;
     const limit = Number.isFinite(filters.limit)
       ? Math.min(100, Math.max(1, filters.limit!))
       : 10;
@@ -172,13 +184,17 @@ export class InvestmentsService {
     }));
 
     const totalProfit = totalValue - totalInvested;
-    const profitPercentage = totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
+    const profitPercentage =
+      totalInvested > 0 ? (totalProfit / totalInvested) * 100 : 0;
 
     // Build allocation percentage list
     const allocation = Object.keys(allocationMap).map((type) => ({
       type,
       value: allocationMap[type],
-      percentage: totalValue > 0 ? Number(((allocationMap[type] / totalValue) * 100).toFixed(2)) : 0,
+      percentage:
+        totalValue > 0
+          ? Number(((allocationMap[type] / totalValue) * 100).toFixed(2))
+          : 0,
     }));
 
     // Calculate Portfolio XIRR
@@ -234,7 +250,11 @@ export class InvestmentsService {
     return where;
   }
 
-  private calculateCagr(principal: number, value: number, purchaseDate: Date): number {
+  private calculateCagr(
+    principal: number,
+    value: number,
+    purchaseDate: Date,
+  ): number {
     if (principal <= 0 || value <= 0) return 0;
 
     const days = (Date.now() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -257,13 +277,16 @@ export class InvestmentsService {
   private calculateXIRR(payments: { amount: number; date: Date }[]): number {
     if (payments.length < 2) return 0;
 
-    const sorted = [...payments].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const sorted = [...payments].sort(
+      (a, b) => a.date.getTime() - b.date.getTime(),
+    );
     const d0 = sorted[0].date;
 
     const f = (r: number) => {
       let sum = 0;
       for (const p of sorted) {
-        const t = (p.date.getTime() - d0.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+        const t =
+          (p.date.getTime() - d0.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
         sum += p.amount / Math.pow(1 + r, t);
       }
       return sum;
@@ -272,8 +295,9 @@ export class InvestmentsService {
     const df = (r: number) => {
       let sum = 0;
       for (const p of sorted) {
-        const t = (p.date.getTime() - d0.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-        sum += -t * p.amount / Math.pow(1 + r, t + 1);
+        const t =
+          (p.date.getTime() - d0.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+        sum += (-t * p.amount) / Math.pow(1 + r, t + 1);
       }
       return sum;
     };

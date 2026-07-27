@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto, LoginDto, RefreshTokenDto } from './dto/auth.dto.js';
@@ -59,7 +63,9 @@ export class AuthService {
   async refreshTokens(dto: RefreshTokenDto) {
     try {
       const payload = await this.jwtService.verifyAsync(dto.refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET || 'family_finance_super_secret_refresh_jwt_key_2026',
+        secret:
+          process.env.JWT_REFRESH_SECRET ||
+          'family_finance_super_secret_refresh_jwt_key_2026',
       });
 
       const user = await this.prisma.user.findUnique({
@@ -81,14 +87,18 @@ export class AuthService {
       this.jwtService.signAsync(
         { sub: userId, email },
         {
-          secret: process.env.JWT_SECRET || 'family_finance_super_secret_jwt_key_2026',
+          secret:
+            process.env.JWT_SECRET ||
+            'family_finance_super_secret_jwt_key_2026',
           expiresIn: '1h',
         },
       ),
       this.jwtService.signAsync(
         { sub: userId, email },
         {
-          secret: process.env.JWT_REFRESH_SECRET || 'family_finance_super_secret_refresh_jwt_key_2026',
+          secret:
+            process.env.JWT_REFRESH_SECRET ||
+            'family_finance_super_secret_refresh_jwt_key_2026',
           expiresIn: '7d',
         },
       ),

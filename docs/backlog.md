@@ -14,3 +14,7 @@
 - [DONE] Dashboard & Analytics (High-fidelity charts, financial health score out of 100)
 - [DONE] AI Analytical Insights Engine
 - [DONE] Integration, Testing & Packaging (Swagger docs, E2E tests, build verification)
+- [DONE] CSV download of all transactions with resolved join names (Account Name, Investment Name)
+- [DONE] Account opening balance updates and account-based transaction filtering
+
+

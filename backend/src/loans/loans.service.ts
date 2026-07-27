@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CreateLoanDto, UpdateLoanDto, CreateExtraPaymentDto } from './dto/loan.dto.js';
+import {
+  CreateLoanDto,
+  UpdateLoanDto,
+  CreateExtraPaymentDto,
+} from './dto/loan.dto.js';
 
 @Injectable()
 export class LoansService {
@@ -64,7 +68,11 @@ export class LoansService {
     return { success: true };
   }
 
-  async addExtraPayment(userId: string, loanId: string, dto: CreateExtraPaymentDto) {
+  async addExtraPayment(
+    userId: string,
+    loanId: string,
+    dto: CreateExtraPaymentDto,
+  ) {
     const loan = await this.findOne(userId, loanId);
 
     // Create payment
@@ -93,14 +101,32 @@ export class LoansService {
     const scheduleWithExtras = this.calculateSchedule(loan, true);
     const scheduleWithoutExtras = this.calculateSchedule(loan, false);
 
-    const totalInterestWithExtras = scheduleWithExtras.reduce((sum, item) => sum + item.interestPaid, 0);
-    const totalInterestWithoutExtras = scheduleWithoutExtras.reduce((sum, item) => sum + item.interestPaid, 0);
+    const totalInterestWithExtras = scheduleWithExtras.reduce(
+      (sum, item) => sum + item.interestPaid,
+      0,
+    );
+    const totalInterestWithoutExtras = scheduleWithoutExtras.reduce(
+      (sum, item) => sum + item.interestPaid,
+      0,
+    );
 
-    const payoffDateWithExtras = scheduleWithExtras.length > 0 ? scheduleWithExtras[scheduleWithExtras.length - 1].date : loan.endDate;
-    const payoffDateWithoutExtras = scheduleWithoutExtras.length > 0 ? scheduleWithoutExtras[scheduleWithoutExtras.length - 1].date : loan.endDate;
+    const payoffDateWithExtras =
+      scheduleWithExtras.length > 0
+        ? scheduleWithExtras[scheduleWithExtras.length - 1].date
+        : loan.endDate;
+    const payoffDateWithoutExtras =
+      scheduleWithoutExtras.length > 0
+        ? scheduleWithoutExtras[scheduleWithoutExtras.length - 1].date
+        : loan.endDate;
 
-    const monthsSaved = Math.max(0, scheduleWithoutExtras.length - scheduleWithExtras.length);
-    const interestSaved = Math.max(0, totalInterestWithoutExtras - totalInterestWithExtras);
+    const monthsSaved = Math.max(
+      0,
+      scheduleWithoutExtras.length - scheduleWithExtras.length,
+    );
+    const interestSaved = Math.max(
+      0,
+      totalInterestWithoutExtras - totalInterestWithExtras,
+    );
 
     return {
       loan,
@@ -124,7 +150,7 @@ export class LoansService {
     const isCompound = loan.interestType === 'COMPOUND';
     const isInterestFree = loan.type === 'INTEREST_FREE';
 
-    let currentDate = new Date(loan.startDate);
+    const currentDate = new Date(loan.startDate);
     let monthIndex = 1;
     const safetyLimit = 600; // max 50 years
 
@@ -153,7 +179,10 @@ export class LoansService {
       const extraPayment = extraPaymentsMap[key] || 0;
 
       const principalPaid = Math.min(emi - interest, outstanding);
-      const totalReduction = Math.min(principalPaid + extraPayment, outstanding);
+      const totalReduction = Math.min(
+        principalPaid + extraPayment,
+        outstanding,
+      );
 
       outstanding -= totalReduction;
 

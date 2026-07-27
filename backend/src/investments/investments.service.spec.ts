@@ -8,7 +8,11 @@ describe('InvestmentsService', () => {
 
   const mockPrismaService = {
     investment: {
-      create: jest.fn().mockImplementation((args) => Promise.resolve({ id: 'test-id', ...args.data })),
+      create: jest
+        .fn()
+        .mockImplementation((args) =>
+          Promise.resolve({ id: 'test-id', ...args.data }),
+        ),
       findMany: jest.fn().mockResolvedValue([]),
       count: jest.fn().mockResolvedValue(0),
     },
@@ -45,7 +49,7 @@ describe('InvestmentsService', () => {
     };
 
     it('defaults isSip to false and sipAmount to null when not provided', async () => {
-      const result = await service.create('user-id', baseDto as any);
+      const result = await service.create('user-id', baseDto);
 
       expect(result.isSip).toBe(false);
       expect(result.sipAmount).toBeNull();
@@ -57,7 +61,7 @@ describe('InvestmentsService', () => {
         ...baseDto,
         isSip: true,
         sipAmount: 1500,
-      } as any);
+      });
 
       expect(result.isSip).toBe(true);
       expect(result.sipAmount).toBe(1500);
@@ -68,7 +72,7 @@ describe('InvestmentsService', () => {
         ...baseDto,
         isSip: false,
         sipAmount: 1500,
-      } as any);
+      });
 
       expect(result.isSip).toBe(false);
       expect(result.sipAmount).toBeNull();

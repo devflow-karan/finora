@@ -8,7 +8,11 @@ describe('BudgetsService', () => {
 
   const mockPrismaService = {
     budget: {
-      create: jest.fn().mockImplementation((dto) => Promise.resolve({ id: 'test-id', ...dto.data })),
+      create: jest
+        .fn()
+        .mockImplementation((dto) =>
+          Promise.resolve({ id: 'test-id', ...dto.data }),
+        ),
       findMany: jest.fn().mockResolvedValue([]),
     },
   };

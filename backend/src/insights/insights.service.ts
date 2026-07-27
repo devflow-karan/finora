@@ -8,7 +8,14 @@ export class InsightsService {
   async getHealthScore(userId: string) {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
     // 1. Fetch Incomes and Expenses for current month
     const currentTransactions = await this.prisma.transaction.findMany({
@@ -67,36 +74,65 @@ export class InsightsService {
       include: { investments: true },
     });
     const emergencyFundValue = emergencyGoal
-      ? emergencyGoal.currentAmount + emergencyGoal.investments.reduce((sum, inv) => sum + inv.value, 0)
+      ? emergencyGoal.currentAmount +
+        emergencyGoal.investments.reduce((sum, inv) => sum + inv.value, 0)
       : 0;
 
-    const monthsCovered = averageExpenses > 0 ? emergencyFundValue / averageExpenses : 0;
+    const monthsCovered =
+      averageExpenses > 0 ? emergencyFundValue / averageExpenses : 0;
     let emergencyFundScore = 0;
     if (monthsCovered >= 6) emergencyFundScore = 20;
-    else if (monthsCovered >= 3) emergencyFundScore = 10 + ((monthsCovered - 3) / 3) * 10;
+    else if (monthsCovered >= 3)
+      emergencyFundScore = 10 + ((monthsCovered - 3) / 3) * 10;
     else if (monthsCovered > 0) emergencyFundScore = (monthsCovered / 3) * 10;
 
     // E. Investment Ratio (Invested / Income) (Max 20 pts)
     // Calculate actual investments in portfolio plus transactions tagged as Investment
-    const investmentsList = await this.prisma.investment.findMany({ where: { userId } });
-    const totalInvestments = investmentsList.reduce((sum, inv) => sum + inv.value, 0);
-    const investmentRatio = monthlyIncome > 0 ? (monthlyInvestments / monthlyIncome) * 100 : 0;
+    const investmentsList = await this.prisma.investment.findMany({
+      where: { userId },
+    });
+    const totalInvestments = investmentsList.reduce(
+      (sum, inv) => sum + inv.value,
+      0,
+    );
+    const investmentRatio =
+      monthlyIncome > 0 ? (monthlyInvestments / monthlyIncome) * 100 : 0;
     let investmentRatioScore = 0;
     if (investmentRatio >= 25) investmentRatioScore = 20;
-    else if (investmentRatio > 0) investmentRatioScore = (investmentRatio / 25) * 20;
+    else if (investmentRatio > 0)
+      investmentRatioScore = (investmentRatio / 25) * 20;
 
     const totalHealthScore = Math.round(
-      savingsRateScore + debtRatioScore + insuranceScore + emergencyFundScore + investmentRatioScore,
+      savingsRateScore +
+        debtRatioScore +
+        insuranceScore +
+        emergencyFundScore +
+        investmentRatioScore,
     );
 
     return {
       score: totalHealthScore,
       breakdown: {
-        savingsRate: { score: Math.round(savingsRateScore), value: Number(savingsRate.toFixed(1)) },
-        debtRatio: { score: Math.round(debtRatioScore), value: Number(debtRatio.toFixed(1)) },
-        insuranceCoverage: { score: Math.round(insuranceScore), activePolicies: insurances.length },
-        emergencyFund: { score: Math.round(emergencyFundScore), monthsCovered: Number(monthsCovered.toFixed(1)) },
-        investmentRatio: { score: Math.round(investmentRatioScore), value: Number(investmentRatio.toFixed(1)) },
+        savingsRate: {
+          score: Math.round(savingsRateScore),
+          value: Number(savingsRate.toFixed(1)),
+        },
+        debtRatio: {
+          score: Math.round(debtRatioScore),
+          value: Number(debtRatio.toFixed(1)),
+        },
+        insuranceCoverage: {
+          score: Math.round(insuranceScore),
+          activePolicies: insurances.length,
+        },
+        emergencyFund: {
+          score: Math.round(emergencyFundScore),
+          monthsCovered: Number(monthsCovered.toFixed(1)),
+        },
+        investmentRatio: {
+          score: Math.round(investmentRatioScore),
+          value: Number(investmentRatio.toFixed(1)),
+        },
       },
     };
   }
@@ -125,7 +161,11 @@ export class InsightsService {
     // Helper: calculate total expense by category
     const getCategoryTotal = (txList: any[], category: string) => {
       return txList
-        .filter((tx) => tx.type === 'EXPENSE' && tx.category.toLowerCase() === category.toLowerCase())
+        .filter(
+          (tx) =>
+            tx.type === 'EXPENSE' &&
+            tx.category.toLowerCase() === category.toLowerCase(),
+        )
         .reduce((sum, tx) => sum + tx.amount, 0);
     };
 
@@ -166,7 +206,9 @@ export class InsightsService {
     }
 
     // Insight 4: Extra Loan Payoff suggestion
-    const loans = await this.prisma.loan.findMany({ where: { userId, type: 'INTEREST_BEARING' } });
+    const loans = await this.prisma.loan.findMany({
+      where: { userId, type: 'INTEREST_BEARING' },
+    });
     if (loans.length > 0) {
       const primeLoan = loans[0];
       if (primeLoan.outstanding > 100000 && primeLoan.interestRate > 5) {
@@ -193,7 +235,8 @@ export class InsightsService {
       insights.push({
         type: 'INFO',
         category: 'General',
-        content: 'Your financial habits are looking stable this month. Keep tracking your daily transactions and stick to your category budgets!',
+        content:
+          'Your financial habits are looking stable this month. Keep tracking your daily transactions and stick to your category budgets!',
       });
     }
 

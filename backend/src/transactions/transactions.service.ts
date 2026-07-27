@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InvestmentsService } from '../investments/investments.service.js';
-import { CreateTransactionDto, UpdateTransactionDto, ImportTransactionsDto } from './dto/transaction.dto.js';
+import {
+  CreateTransactionDto,
+  UpdateTransactionDto,
+  ImportTransactionsDto,
+} from './dto/transaction.dto.js';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
@@ -12,7 +21,12 @@ export class TransactionsService {
 
   async create(userId: string, dto: CreateTransactionDto) {
     // Duplicate check
-    const isDup = await this.detectDuplicate(userId, new Date(dto.date), dto.amount, dto.description);
+    const isDup = await this.detectDuplicate(
+      userId,
+      new Date(dto.date),
+      dto.amount,
+      dto.description,
+    );
     if (isDup) {
       throw new BadRequestException('Potential duplicate transaction detected');
     }
@@ -40,7 +54,12 @@ export class TransactionsService {
       });
 
       if (dto.investmentId && dto.type === 'EXPENSE') {
-        await this.investmentsService.applyContribution(userId, dto.investmentId, dto.amount, tx);
+        await this.investmentsService.applyContribution(
+          userId,
+          dto.investmentId,
+          dto.amount,
+          tx,
+        );
       }
 
       return transaction;
@@ -70,7 +89,7 @@ export class TransactionsService {
       limit?: number;
     },
   ) {
-    const where: any = { userId };
+    const where: Prisma.TransactionWhereInput = { userId };
 
     if (filters.search) {
       where.OR = [
@@ -92,24 +111,42 @@ export class TransactionsService {
     }
 
     if (filters.startDate || filters.endDate) {
-      where.date = {};
+      const dateFilter: Prisma.DateTimeFilter = {};
       if (filters.startDate) {
-        where.date.gte = this.parseStartOfDay(filters.startDate);
+        dateFilter.gte = this.parseStartOfDay(filters.startDate);
       }
       if (filters.endDate) {
-        where.date.lte = this.parseEndOfDay(filters.endDate);
+        dateFilter.lte = this.parseEndOfDay(filters.endDate);
       }
+      where.date = dateFilter;
     } else {
       const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const firstDay = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+        0,
+        0,
+        0,
+        0,
+      );
+      const lastDay = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      );
       where.date = {
         gte: firstDay,
         lte: lastDay,
       };
     }
 
-    const page = Number.isFinite(filters.page) && filters.page! > 0 ? filters.page! : 1;
+    const page =
+      Number.isFinite(filters.page) && filters.page! > 0 ? filters.page! : 1;
     const limit = Number.isFinite(filters.limit)
       ? Math.min(100, Math.max(1, filters.limit!))
       : 10;
@@ -127,12 +164,127 @@ export class TransactionsService {
     ]);
 
     return {
-      data: transactions.map(({ account, ...tx }) => ({ ...tx, account: account?.name })),
+      data: transactions.map(({ account, ...tx }) => ({
+        ...tx,
+        account: account?.name,
+      })),
       total,
       page,
       limit,
       totalPages: total > 0 ? Math.ceil(total / limit) : 1,
     };
+  }
+
+  async exportCsv(
+    userId: string,
+    filters: {
+      search?: string;
+      category?: string;
+      account?: string;
+      type?: string;
+      startDate?: string;
+      endDate?: string;
+    },
+  ) {
+    const where: Prisma.TransactionWhereInput = { userId };
+
+    if (filters.search) {
+      where.OR = [
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { notes: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (filters.category) {
+      where.category = filters.category;
+    }
+
+    if (filters.account) {
+      where.account = { name: filters.account };
+    }
+
+    if (filters.type) {
+      where.type = filters.type;
+    }
+
+    if (filters.startDate || filters.endDate) {
+      const dateFilter: Prisma.DateTimeFilter = {};
+      if (filters.startDate) {
+        dateFilter.gte = this.parseStartOfDay(filters.startDate);
+      }
+      if (filters.endDate) {
+        dateFilter.lte = this.parseEndOfDay(filters.endDate);
+      }
+      where.date = dateFilter;
+    }
+
+    const transactions = await this.prisma.transaction.findMany({
+      where,
+      include: {
+        account: { select: { name: true } },
+        investment: { select: { name: true } },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    const headers = [
+      'Date',
+      'Description',
+      'Category',
+      'Sub-Category',
+      'Amount',
+      'Type',
+      'Payment Mode',
+      'Account Name',
+      'Investment Name',
+      'Tags',
+      'Notes',
+      'Recurring',
+      'Attachments',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '';
+      let str = '';
+      if (val instanceof Date) {
+        str = val.toISOString();
+      } else {
+        str = String(val);
+      }
+      const escaped = str.replace(/"/g, '""');
+      if (
+        escaped.includes(',') ||
+        escaped.includes('"') ||
+        escaped.includes('\n') ||
+        escaped.includes('\r')
+      ) {
+        return `"${escaped}"`;
+      }
+      return escaped;
+    };
+
+    const csvLines = [headers.join(',')];
+
+    for (const tx of transactions) {
+      const row = [
+        tx.date,
+        tx.description,
+        tx.category,
+        tx.subCategory || '',
+        tx.amount,
+        tx.type,
+        tx.paymentMode,
+        tx.account?.name || '',
+        tx.investment?.name || '',
+        tx.tags.join(', '),
+        tx.notes || '',
+        tx.recurring,
+        tx.attachments.join(', '),
+      ];
+      csvLines.push(row.map(escapeCsv).join(','));
+    }
+
+    return csvLines.join('\r\n');
   }
 
   async findOne(userId: string, id: string) {
@@ -149,13 +301,21 @@ export class TransactionsService {
 
   async update(userId: string, id: string, dto: UpdateTransactionDto) {
     const existing = await this.findOne(userId, id);
-    const accountId = dto.account !== undefined ? await this.resolveAccountId(userId, dto.account) : undefined;
+    const accountId =
+      dto.account !== undefined
+        ? await this.resolveAccountId(userId, dto.account)
+        : undefined;
 
     return this.prisma.$transaction(async (tx) => {
       // Reverse the old contribution (if any) before applying the new one, so
       // amount changes, re-linking, and un-linking all keep the investment in sync.
       if (existing.investmentId && existing.type === 'EXPENSE') {
-        await this.investmentsService.applyContribution(userId, existing.investmentId, -existing.amount, tx);
+        await this.investmentsService.applyContribution(
+          userId,
+          existing.investmentId,
+          -existing.amount,
+          tx,
+        );
       }
 
       const updated = await tx.transaction.update({
@@ -173,26 +333,42 @@ export class TransactionsService {
           notes: dto.notes,
           recurring: dto.recurring,
           attachments: dto.attachments,
-          investmentId: dto.investmentId !== undefined ? dto.investmentId : undefined,
+          investmentId:
+            dto.investmentId !== undefined ? dto.investmentId : undefined,
         },
       });
 
-      const newInvestmentId = dto.investmentId !== undefined ? dto.investmentId : existing.investmentId;
+      const newInvestmentId =
+        dto.investmentId !== undefined
+          ? dto.investmentId
+          : existing.investmentId;
       const newType = dto.type ?? existing.type;
       const newAmount = dto.amount ?? existing.amount;
       if (newInvestmentId && newType === 'EXPENSE') {
-        await this.investmentsService.applyContribution(userId, newInvestmentId, newAmount, tx);
+        await this.investmentsService.applyContribution(
+          userId,
+          newInvestmentId,
+          newAmount,
+          tx,
+        );
       }
 
       return updated;
     });
   }
 
-  private async resolveAccountId(userId: string, name?: string): Promise<string> {
+  private async resolveAccountId(
+    userId: string,
+    name?: string,
+  ): Promise<string> {
     const accountName = name?.trim() || 'Primary Account';
-    let account = await this.prisma.account.findFirst({ where: { userId, name: accountName } });
+    let account = await this.prisma.account.findFirst({
+      where: { userId, name: accountName },
+    });
     if (!account) {
-      account = await this.prisma.account.create({ data: { userId, name: accountName } });
+      account = await this.prisma.account.create({
+        data: { userId, name: accountName },
+      });
     }
     return account.id;
   }
@@ -202,7 +378,12 @@ export class TransactionsService {
 
     return this.prisma.$transaction(async (tx) => {
       if (existing.investmentId && existing.type === 'EXPENSE') {
-        await this.investmentsService.applyContribution(userId, existing.investmentId, -existing.amount, tx);
+        await this.investmentsService.applyContribution(
+          userId,
+          existing.investmentId,
+          -existing.amount,
+          tx,
+        );
       }
 
       await tx.transaction.delete({
@@ -250,7 +431,12 @@ export class TransactionsService {
           category = catInfo.category;
         }
 
-        const isDup = await this.detectDuplicate(userId, date, amount, description);
+        const isDup = await this.detectDuplicate(
+          userId,
+          date,
+          amount,
+          description,
+        );
         if (isDup) {
           duplicatesSkipped++;
           continue;
@@ -285,9 +471,11 @@ export class TransactionsService {
         let isExpense = true;
 
         // Try ICICI style: "Sent Rs.X to Y on Z. Ref W"
-        const sentRegex = /(?:sent|debited|paid)\s+(?:rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s+to\s+([^on]+)(?:\s+on\s+([^.]+))?/i;
+        const sentRegex =
+          /(?:sent|debited|paid)\s+(?:rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s+to\s+([^on]+)(?:\s+on\s+([^.]+))?/i;
         // Try general debit style: "Rs.X debited from Y AC Z to W"
-        const debitGeneralRegex = /(?:rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s+debited\s+from\s+([^\s]+)\s+.*?to\s+([^Ref]+)/i;
+        const debitGeneralRegex =
+          /(?:rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s+debited\s+from\s+([^\s]+)\s+.*?to\s+([^Ref]+)/i;
 
         let match = line.match(sentRegex);
         if (match) {
@@ -302,7 +490,8 @@ export class TransactionsService {
             merchant = match[3].trim();
           } else {
             // General matching for "credited" to detect Income
-            const creditRegex = /(?:rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s+(?:credited|received)\s+to\s+([^\s]+)/i;
+            const creditRegex =
+              /(?:rs\.?|inr)\s*([\d,]+(?:\.\d+)?)\s+(?:credited|received)\s+to\s+([^\s]+)/i;
             const creditMatch = line.match(creditRegex);
             if (creditMatch) {
               amount = parseFloat(creditMatch[1].replace(/,/g, ''));
@@ -317,7 +506,12 @@ export class TransactionsService {
 
         const catInfo = this.autoCategorize(merchant);
 
-        const isDup = await this.detectDuplicate(userId, new Date(), amount, merchant);
+        const isDup = await this.detectDuplicate(
+          userId,
+          new Date(),
+          amount,
+          merchant,
+        );
         if (isDup) {
           duplicatesSkipped++;
           continue;
@@ -353,7 +547,12 @@ export class TransactionsService {
     };
   }
 
-  private async detectDuplicate(userId: string, date: Date, amount: number, description: string): Promise<boolean> {
+  private async detectDuplicate(
+    userId: string,
+    date: Date,
+    amount: number,
+    description: string,
+  ): Promise<boolean> {
     const oneDayAgo = new Date(date.getTime() - 24 * 60 * 60 * 1000);
     const oneDayLater = new Date(date.getTime() + 24 * 60 * 60 * 1000);
 
@@ -375,48 +574,130 @@ export class TransactionsService {
     return !!existing;
   }
 
-  private autoCategorize(description: string): { category: string; subCategory?: string } {
+  private autoCategorize(description: string): {
+    category: string;
+    subCategory?: string;
+  } {
     const desc = description.toLowerCase();
-    if (desc.includes('dmart') || desc.includes('grocery') || desc.includes('groceries') || desc.includes('bigbasket') || desc.includes('blinkit') || desc.includes('zepto')) {
+    if (
+      desc.includes('dmart') ||
+      desc.includes('grocery') ||
+      desc.includes('groceries') ||
+      desc.includes('bigbasket') ||
+      desc.includes('blinkit') ||
+      desc.includes('zepto')
+    ) {
       return { category: 'Groceries' };
     }
-    if (desc.includes('shell') || desc.includes('petrol') || desc.includes('fuel') || desc.includes('cng') || desc.includes('hpcl') || desc.includes('bpcl') || desc.includes('iocl')) {
+    if (
+      desc.includes('shell') ||
+      desc.includes('petrol') ||
+      desc.includes('fuel') ||
+      desc.includes('cng') ||
+      desc.includes('hpcl') ||
+      desc.includes('bpcl') ||
+      desc.includes('iocl')
+    ) {
       return { category: 'Fuel' };
     }
-    if (desc.includes('rent') || desc.includes('apartment') || desc.includes('maintenance')) {
+    if (
+      desc.includes('rent') ||
+      desc.includes('apartment') ||
+      desc.includes('maintenance')
+    ) {
       return { category: 'Rent', subCategory: 'House' };
     }
-    if (desc.includes('swiggy') || desc.includes('zomato') || desc.includes('restaurant') || desc.includes('food') || desc.includes('cafe') || desc.includes('starbucks')) {
+    if (
+      desc.includes('swiggy') ||
+      desc.includes('zomato') ||
+      desc.includes('restaurant') ||
+      desc.includes('food') ||
+      desc.includes('cafe') ||
+      desc.includes('starbucks')
+    ) {
       return { category: 'Food', subCategory: 'Restaurant' };
     }
-    if (desc.includes('amazon') || desc.includes('flipkart') || desc.includes('myntra') || desc.includes('shopping')) {
+    if (
+      desc.includes('amazon') ||
+      desc.includes('flipkart') ||
+      desc.includes('myntra') ||
+      desc.includes('shopping')
+    ) {
       return { category: 'Shopping', subCategory: 'Amazon' };
     }
-    if (desc.includes('tcs') || desc.includes('infosys') || desc.includes('salary') || desc.includes('paycheck')) {
+    if (
+      desc.includes('tcs') ||
+      desc.includes('infosys') ||
+      desc.includes('salary') ||
+      desc.includes('paycheck')
+    ) {
       return { category: 'Salary' };
     }
-    if (desc.includes('electricity') || desc.includes('power') || desc.includes('bescom') || desc.includes('mseb')) {
+    if (
+      desc.includes('electricity') ||
+      desc.includes('power') ||
+      desc.includes('bescom') ||
+      desc.includes('mseb')
+    ) {
       return { category: 'Utilities', subCategory: 'Electricity' };
     }
-    if (desc.includes('act fibernet') || desc.includes('broadband') || desc.includes('internet') || desc.includes('wifi')) {
+    if (
+      desc.includes('act fibernet') ||
+      desc.includes('broadband') ||
+      desc.includes('internet') ||
+      desc.includes('wifi')
+    ) {
       return { category: 'Utilities', subCategory: 'Internet' };
     }
-    if (desc.includes('jio') || desc.includes('airtel') || desc.includes('vodafone') || desc.includes('mobile')) {
+    if (
+      desc.includes('jio') ||
+      desc.includes('airtel') ||
+      desc.includes('vodafone') ||
+      desc.includes('mobile')
+    ) {
       return { category: 'Utilities', subCategory: 'Mobile' };
     }
-    if (desc.includes('netflix') || desc.includes('prime video') || desc.includes('theatre') || desc.includes('cinema') || desc.includes('entertainment')) {
+    if (
+      desc.includes('netflix') ||
+      desc.includes('prime video') ||
+      desc.includes('theatre') ||
+      desc.includes('cinema') ||
+      desc.includes('entertainment')
+    ) {
       return { category: 'Entertainment' };
     }
-    if (desc.includes('hdfc click') || desc.includes('insurance') || desc.includes('lic') || desc.includes('bupa') || desc.includes('lombard')) {
+    if (
+      desc.includes('hdfc click') ||
+      desc.includes('insurance') ||
+      desc.includes('lic') ||
+      desc.includes('bupa') ||
+      desc.includes('lombard')
+    ) {
       return { category: 'Insurance' };
     }
-    if (desc.includes('loan') || desc.includes('emi') || desc.includes('lender')) {
+    if (
+      desc.includes('loan') ||
+      desc.includes('emi') ||
+      desc.includes('lender')
+    ) {
       return { category: 'Loan' };
     }
-    if (desc.includes('mutual fund') || desc.includes('sip') || desc.includes('nps') || desc.includes('ppf') || desc.includes('stock') || desc.includes('groww') || desc.includes('zerodha')) {
+    if (
+      desc.includes('mutual fund') ||
+      desc.includes('sip') ||
+      desc.includes('nps') ||
+      desc.includes('ppf') ||
+      desc.includes('stock') ||
+      desc.includes('groww') ||
+      desc.includes('zerodha')
+    ) {
       return { category: 'Investment' };
     }
-    if (desc.includes('cashback') || desc.includes('refund') || desc.includes('interest')) {
+    if (
+      desc.includes('cashback') ||
+      desc.includes('refund') ||
+      desc.includes('interest')
+    ) {
       return { category: 'Income', subCategory: 'Cashback' };
     }
     return { category: 'Misc' };

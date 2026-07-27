@@ -8,13 +8,23 @@ export class DashboardService {
   async getDashboardSummary(userId: string) {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
     // 1. Get all accounts for user and sum opening balances
     const accounts = await this.prisma.account.findMany({
       where: { userId },
     });
-    const totalOpeningBalance = accounts.reduce((sum, acc) => sum + acc.openingBalance, 0);
+    const totalOpeningBalance = accounts.reduce(
+      (sum, acc) => sum + acc.openingBalance,
+      0,
+    );
 
     // 2. Transactions this month
     const currentMonthTransactions = await this.prisma.transaction.findMany({
@@ -61,7 +71,10 @@ export class DashboardService {
     const investments = await this.prisma.investment.findMany({
       where: { userId },
     });
-    const totalInvestments = investments.reduce((sum, inv) => sum + inv.value, 0);
+    const totalInvestments = investments.reduce(
+      (sum, inv) => sum + inv.value,
+      0,
+    );
 
     // 4. Loans summary
     const loans = await this.prisma.loan.findMany({
@@ -75,7 +88,8 @@ export class DashboardService {
       include: { investments: true },
     });
     const emergencyFundValue = emergencyGoal
-      ? emergencyGoal.currentAmount + emergencyGoal.investments.reduce((sum, inv) => sum + inv.value, 0)
+      ? emergencyGoal.currentAmount +
+        emergencyGoal.investments.reduce((sum, inv) => sum + inv.value, 0)
       : 0;
     const emergencyFundTarget = emergencyGoal ? emergencyGoal.targetAmount : 0;
 
@@ -89,12 +103,18 @@ export class DashboardService {
     // 7. Financial Independence (FI) Progress
     // FI Target = 300x current monthly expenses (25x annual expenses rule)
     // If current expenses is 0, use a baseline of Rs 50,000 / month
-    const averageMonthlyExpenses = monthlyExpenses > 0 ? monthlyExpenses : 50000;
+    const averageMonthlyExpenses =
+      monthlyExpenses > 0 ? monthlyExpenses : 50000;
     const fiTarget = averageMonthlyExpenses * 300;
-    const fiProgressPct = fiTarget > 0 ? (totalInvestments / fiTarget) * 100 : 0;
+    const fiProgressPct =
+      fiTarget > 0 ? (totalInvestments / fiTarget) * 100 : 0;
 
     // 8. Trends & Charts
-    const expenseTrend = await this.getCategoryBreakdown(userId, currentMonthStart, currentMonthEnd);
+    const expenseTrend = await this.getCategoryBreakdown(
+      userId,
+      currentMonthStart,
+      currentMonthEnd,
+    );
     const cashFlowTrend = await this.getWeeklyCashFlowTrend(userId);
 
     return {
@@ -158,7 +178,10 @@ export class DashboardService {
     const investments = await this.prisma.investment.findMany({
       where: { userId },
     });
-    const totalInvestments = investments.reduce((sum, inv) => sum + inv.value, 0);
+    const totalInvestments = investments.reduce(
+      (sum, inv) => sum + inv.value,
+      0,
+    );
 
     const loans = await this.prisma.loan.findMany({
       where: { userId },
@@ -205,7 +228,12 @@ export class DashboardService {
       }
     }
 
-    const result: { day: string; income: number; expense: number; netWorth: number }[] = [];
+    const result: {
+      day: string;
+      income: number;
+      expense: number;
+      netWorth: number;
+    }[] = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(weekStart);
       day.setDate(weekStart.getDate() + i);
@@ -217,10 +245,16 @@ export class DashboardService {
 
       const stats = dailyStats[dateKey] || { income: 0, expense: 0 };
       result.push({
-        day: day.toLocaleString('default', { weekday: 'short', month: 'short', day: 'numeric' }),
+        day: day.toLocaleString('default', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        }),
         income: Number(stats.income.toFixed(2)),
         expense: Number(stats.expense.toFixed(2)),
-        netWorth: Number((carryBalance + totalInvestments - totalLoans).toFixed(2)),
+        netWorth: Number(
+          (carryBalance + totalInvestments - totalLoans).toFixed(2),
+        ),
       });
     }
 
