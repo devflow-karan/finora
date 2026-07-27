@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-07-27
+
+### Added
+- **Account Renaming**: Updated the Manage Accounts modal to make the account names editable, allowing users to rename their accounts.
+
+### Changed
+- **CSV Exporter Refinements**: Cleaned up the transaction export by removing columns: `Sub-Category`, `Payment Mode`, and `Tags`.
+- **CSV Date Formatting**: Changed the date format in exported CSVs to use the readable `DD MMM YYYY` format (e.g. `27 Jul 2026`).
+
 ## [0.3.0] - 2026-07-27
+
 
 ### Added
 - **Account Balance Management**: Dedicated backend endpoints (`GET /accounts`, `PUT /accounts/:id`) and frontend Manage Accounts dialog to view and update opening balances.

@@ -90,6 +90,7 @@ export const Transactions: React.FC = () => {
   const [newAccountName, setNewAccountName] = useState('');
   const [showManageAccounts, setShowManageAccounts] = useState(false);
   const [editingAccountBalances, setEditingAccountBalances] = useState<{ [id: string]: number }>({});
+  const [editingAccountNames, setEditingAccountNames] = useState<{ [id: string]: string }>({});
 
 
   // Add/Edit form states
@@ -339,19 +340,21 @@ export const Transactions: React.FC = () => {
     }
   };
 
-  const handleUpdateOpeningBalance = async (id: string, newBalance: number) => {
+  const handleUpdateAccount = async (id: string, name: string, newBalance: number) => {
     try {
       await apiFetch(`/accounts/${id}`, {
         method: 'PUT',
         body: JSON.stringify({
+          name,
           openingBalance: newBalance,
         }),
       });
       loadAccounts();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update opening balance');
+      alert(err instanceof Error ? err.message : 'Failed to update account');
     }
   };
+
 
 
   return (
@@ -571,8 +574,9 @@ export const Transactions: React.FC = () => {
                 <th className="py-3 px-4 font-semibold">Description</th>
                 <th className="py-3 px-4 font-semibold">Category</th>
                 <th className="py-3 px-4 font-semibold">Account</th>
-                <th className="py-3 px-4 font-semibold">Mode</th>
+                <th className="py-3 px-4 font-semibold">Notes</th>
                 <th className="py-3 px-4 font-semibold text-right">Amount</th>
+
                 <th className="py-3 px-4 font-semibold text-center">Actions</th>
               </tr>
             </thead>
@@ -607,7 +611,6 @@ export const Transactions: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 font-medium text-white">
                       <div>{tx.description}</div>
-                      {tx.notes && <div className="text-xs text-gray-500 font-normal mt-0.5">{tx.notes}</div>}
                     </td>
                     <td className="py-3 px-4">
                       <span className="bg-gray-800 text-gray-300 text-xs px-2.5 py-1 rounded-full border border-gray-700">
@@ -620,7 +623,7 @@ export const Transactions: React.FC = () => {
                       )}
                     </td>
                     <td className="py-3 px-4 text-gray-400">{tx.account}</td>
-                    <td className="py-3 px-4 text-gray-400">{tx.paymentMode}</td>
+                    <td className="py-3 px-4 text-gray-400 max-w-[200px] break-words text-xs">{tx.notes || '-'}</td>
                     <td className={`py-3 px-4 font-bold text-right ${tx.type === 'INCOME' ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
@@ -955,9 +958,16 @@ export const Transactions: React.FC = () => {
             <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
               {accounts.map((acc) => (
                 <div key={acc.id} className="flex items-center justify-between border-b border-gray-800 pb-3 last:border-0 last:pb-0">
-                  <div>
-                    <h3 className="font-semibold text-sm text-white">{acc.name}</h3>
-                    <p className="text-xs text-gray-400">Currency: {acc.currency}</p>
+                  <div className="flex-1 mr-4">
+                    <input
+                      type="text"
+                      value={editingAccountNames[acc.id] !== undefined ? editingAccountNames[acc.id] : acc.name}
+                      onChange={(e) => {
+                        setEditingAccountNames((prev) => ({ ...prev, [acc.id]: e.target.value }));
+                      }}
+                      className="bg-transparent hover:bg-gray-850 focus:bg-[#0d0f14] border border-transparent hover:border-gray-700 focus:border-emerald-500 rounded px-2 py-1 text-sm font-semibold text-white w-full focus:outline-none transition-all"
+                    />
+                    <p className="text-xs text-gray-500 px-2 mt-0.5">Currency: {acc.currency}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">Opening Balance:</span>
@@ -971,7 +981,11 @@ export const Transactions: React.FC = () => {
                       className="w-28 bg-[#0d0f14] border border-gray-850 rounded-lg px-2 py-1 text-sm text-white text-right focus:outline-none focus:border-emerald-500"
                     />
                     <button
-                      onClick={() => handleUpdateOpeningBalance(acc.id, editingAccountBalances[acc.id] ?? acc.openingBalance)}
+                      onClick={() => handleUpdateAccount(
+                        acc.id,
+                        editingAccountNames[acc.id] !== undefined ? editingAccountNames[acc.id] : acc.name,
+                        editingAccountBalances[acc.id] !== undefined ? editingAccountBalances[acc.id] : acc.openingBalance
+                      )}
                       className="bg-emerald-500 hover:bg-emerald-400 text-white text-xs px-3 py-1.5 rounded-lg transition-all"
                     >
                       Save
@@ -979,6 +993,7 @@ export const Transactions: React.FC = () => {
                   </div>
                 </div>
               ))}
+
             </div>
           </div>
         </div>

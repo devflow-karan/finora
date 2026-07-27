@@ -16,5 +16,9 @@
 - [DONE] Integration, Testing & Packaging (Swagger docs, E2E tests, build verification)
 - [DONE] CSV download of all transactions with resolved join names (Account Name, Investment Name)
 - [DONE] Account opening balance updates and account-based transaction filtering
+- [DONE] CSV export refinements (date format, columns removal) and Account renaming support
+- [DONE] Replace Mode column with responsive Notes column in daily transactions view
+
+
 
 

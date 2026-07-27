@@ -231,23 +231,41 @@ export class TransactionsService {
       'Date',
       'Description',
       'Category',
-      'Sub-Category',
       'Amount',
       'Type',
-      'Payment Mode',
       'Account Name',
       'Investment Name',
-      'Tags',
       'Notes',
       'Recurring',
       'Attachments',
     ];
 
+    const formatDate = (d: Date) => {
+      const day = d.getDate();
+      const monthNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      const month = monthNames[d.getMonth()];
+      const year = d.getFullYear();
+      return `${day} ${month} ${year}`;
+    };
+
     const escapeCsv = (val: any) => {
       if (val === null || val === undefined) return '';
       let str = '';
       if (val instanceof Date) {
-        str = val.toISOString();
+        str = formatDate(val);
       } else {
         str = String(val);
       }
@@ -270,13 +288,10 @@ export class TransactionsService {
         tx.date,
         tx.description,
         tx.category,
-        tx.subCategory || '',
         tx.amount,
         tx.type,
-        tx.paymentMode,
         tx.account?.name || '',
         tx.investment?.name || '',
-        tx.tags.join(', '),
         tx.notes || '',
         tx.recurring,
         tx.attachments.join(', '),
