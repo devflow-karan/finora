@@ -967,7 +967,12 @@ export const Transactions: React.FC = () => {
                       }}
                       className="bg-transparent hover:bg-gray-850 focus:bg-[#0d0f14] border border-transparent hover:border-gray-700 focus:border-emerald-500 rounded px-2 py-1 text-sm font-semibold text-white w-full focus:outline-none transition-all"
                     />
-                    <p className="text-xs text-gray-500 px-2 mt-0.5">Currency: {acc.currency}</p>
+                    <div className="flex flex-col gap-0.5 px-2 mt-0.5">
+                      <p className="text-xs text-gray-500">Currency: {acc.currency}</p>
+                      <p className="text-xs text-emerald-400 font-medium">
+                        Current Balance: ₹{(acc.currentBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500">Opening Balance:</span>

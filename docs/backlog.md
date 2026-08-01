@@ -18,6 +18,8 @@
 - [DONE] Account opening balance updates and account-based transaction filtering
 - [DONE] CSV export refinements (date format, columns removal) and Account renaming support
 - [DONE] Replace Mode column with responsive Notes column in daily transactions view
+- [DONE] Calculate individual account current balances and explain in documentation
+
 
 
 

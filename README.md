@@ -19,9 +19,24 @@ Finora is a modern AI-powered personal finance platform that helps individuals a
 - 📅 Bill Reminders
 - 📤 Excel & CSV Export
 
+
+---
+
+## Account Balances & Calculations
+
+Your Net Worth Dashboard displays a combined balance representing the sum of all individual account balances. 
+
+To differentiate individual account balances (e.g., to check which account holds ₹30,000 and which holds the remainder):
+1. Navigate to the **Daily Transactions** page.
+2. Click the **Manage Accounts** button in the header.
+3. The Manage Accounts modal will display a list of all your active accounts alongside their individual computed **Current Balance**:
+   $$\text{Current Balance} = \text{Opening Balance} + \sum(\text{Income Transactions}) - \sum(\text{Expense Transactions})$$
+4. Inside this same modal, you can rename accounts or update their opening balances.
+
 ---
 
 ## Tech Stack
+
 
 Frontend
 
