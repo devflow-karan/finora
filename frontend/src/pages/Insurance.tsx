@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Plus, Heart, Calendar, AlertCircle, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Heart, Calendar, AlertCircle, Pencil, Trash2, Download } from 'lucide-react';
 
 const emptyForm = {
   policyName: '', policyNumber: '', type: 'LIFE', premium: '',
@@ -8,7 +8,7 @@ const emptyForm = {
 };
 
 export const Insurance: React.FC = () => {
-  const { apiFetch } = useAuth();
+  const { apiFetch, accessToken } = useAuth();
   const [policies, setPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +32,33 @@ export const Insurance: React.FC = () => {
   useEffect(() => {
     loadPolicies();
   }, []);
+
+  const handleDownloadCsv = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/insurance/export`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export insurance CSV');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `insurance_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download CSV');
+    }
+  };
 
   const openAdd = () => {
     setEditingPolicy(null);
@@ -129,13 +156,22 @@ export const Insurance: React.FC = () => {
           <h1 className="text-2xl font-bold tracking-tight">Insurance Portfolio & Renewals</h1>
           <p className="text-gray-400 text-sm mt-1">Manage cycles, premium cash flows, and renewal dates.</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm transition-all shadow-md"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Record Policy</span>
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleDownloadCsv}
+            className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download CSV</span>
+          </button>
+          <button
+            onClick={openAdd}
+            className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm transition-all shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Record Policy</span>
+          </button>
+        </div>
       </div>
 
       {/* Aggregate cards */}

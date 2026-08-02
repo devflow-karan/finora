@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { buildCsv } from '../common/csv.util.js';
 import {
   CreateLoanDto,
   UpdateLoanDto,
@@ -9,6 +10,46 @@ import {
 @Injectable()
 export class LoansService {
   constructor(private prisma: PrismaService) {}
+
+  async exportCsv(userId: string) {
+    const loans = await this.prisma.loan.findMany({
+      where: { userId },
+      include: { extraPayments: true },
+      orderBy: { startDate: 'desc' },
+    });
+
+    const headers = [
+      'Name',
+      'Lender',
+      'Type',
+      'Interest Type',
+      'Principal',
+      'Interest Rate',
+      'EMI',
+      'Outstanding',
+      'Start Date',
+      'End Date',
+      'Extra Payments Count',
+      'Extra Payments Total',
+    ];
+
+    const rows = loans.map((loan) => [
+      loan.name,
+      loan.lender,
+      loan.type,
+      loan.interestType,
+      loan.principal,
+      loan.interestRate,
+      loan.emi,
+      loan.outstanding,
+      loan.startDate,
+      loan.endDate,
+      loan.extraPayments.length,
+      loan.extraPayments.reduce((sum, ep) => sum + ep.amount, 0),
+    ]);
+
+    return buildCsv(headers, rows);
+  }
 
   async create(userId: string, dto: CreateLoanDto) {
     return this.prisma.loan.create({

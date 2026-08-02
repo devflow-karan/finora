@@ -8,7 +8,9 @@ import {
   Param,
   Query,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import * as express from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { GetUserId } from '../auth/get-user.decorator.js';
 import { InvestmentsService } from './investments.service.js';
@@ -48,6 +50,20 @@ export class InvestmentsController {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  @Get('export')
+  async export(
+    @GetUserId() userId: string,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    const csv = await this.invService.exportCsv(userId);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=investments.csv',
+    );
+    return csv;
   }
 
   @Get(':id')

@@ -1,10 +1,44 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { buildCsv } from '../common/csv.util.js';
 import { CreateInsuranceDto, UpdateInsuranceDto } from './dto/insurance.dto.js';
 
 @Injectable()
 export class InsuranceService {
   constructor(private prisma: PrismaService) {}
+
+  async exportCsv(userId: string) {
+    const policies = await this.prisma.insurance.findMany({
+      where: { userId },
+      orderBy: { renewalDate: 'asc' },
+    });
+
+    const headers = [
+      'Policy Name',
+      'Policy Number',
+      'Type',
+      'Premium',
+      'Premium Frequency',
+      'Coverage',
+      'Renewal Date',
+      'Nominee',
+      'Status',
+    ];
+
+    const rows = policies.map((p) => [
+      p.policyName,
+      p.policyNumber,
+      p.type,
+      p.premium,
+      p.premiumFrequency,
+      p.coverage,
+      p.renewalDate,
+      p.nominee,
+      p.status,
+    ]);
+
+    return buildCsv(headers, rows);
+  }
 
   async create(userId: string, dto: CreateInsuranceDto) {
     return this.prisma.insurance.create({

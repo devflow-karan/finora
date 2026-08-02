@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Plus, ArrowUpRight, Shield, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ArrowUpRight, Shield, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
@@ -54,7 +54,7 @@ function parseItemsResponse(summary: any, page: number, pageSize: number): Pagin
 }
 
 export const Investments: React.FC = () => {
-  const { apiFetch } = useAuth();
+  const { apiFetch, accessToken } = useAuth();
   const [summary, setSummary] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,6 +177,33 @@ export const Investments: React.FC = () => {
     }
   };
 
+  const handleDownloadCsv = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/investments/export`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export investments CSV');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `investments_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download CSV');
+    }
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (type === 'MUTUAL_FUND' && isSip && !sipAmount) {
@@ -237,13 +264,22 @@ export const Investments: React.FC = () => {
           <h1 className="text-2xl font-bold tracking-tight">Investment Portfolio</h1>
           <p className="text-gray-400 text-sm mt-1">Audit equity, mutual funds, EPF, NPS, PPF, and Sovereign Gold bonds.</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm transition-all shadow-md"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add Asset Record</span>
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleDownloadCsv}
+            className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download CSV</span>
+          </button>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm transition-all shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Asset Record</span>
+          </button>
+        </div>
       </div>
 
       {/* Portfolio overview cards */}

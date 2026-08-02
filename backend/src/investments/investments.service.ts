@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { buildCsv } from '../common/csv.util.js';
 import {
   CreateInvestmentDto,
   UpdateInvestmentDto,
@@ -17,6 +18,44 @@ export interface InvestmentSummaryFilters {
 @Injectable()
 export class InvestmentsService {
   constructor(private prisma: PrismaService) {}
+
+  async exportCsv(userId: string) {
+    const investments = await this.prisma.investment.findMany({
+      where: { userId },
+      include: { goal: { select: { name: true } } },
+      orderBy: { purchaseDate: 'desc' },
+    });
+
+    const headers = [
+      'Name',
+      'Type',
+      'Principal',
+      'Current Value',
+      'Profit',
+      'Units',
+      'NAV / Price',
+      'Is SIP',
+      'SIP Amount',
+      'Purchase Date',
+      'Goal Name',
+    ];
+
+    const rows = investments.map((inv) => [
+      inv.name,
+      inv.type,
+      inv.principal,
+      inv.value,
+      inv.profit,
+      inv.units,
+      inv.navOrPrice,
+      inv.isSip,
+      inv.sipAmount,
+      inv.purchaseDate,
+      inv.goal?.name || '',
+    ]);
+
+    return buildCsv(headers, rows);
+  }
 
   async create(userId: string, dto: CreateInvestmentDto) {
     const profit = dto.value - dto.principal;

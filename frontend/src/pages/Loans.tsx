@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext.js';
-import { Plus, Sparkles, PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Sparkles, PlusCircle, Pencil, Trash2, Download } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 function calcOutstanding(
@@ -41,7 +41,7 @@ const emptyForm = {
 };
 
 export const Loans: React.FC = () => {
-  const { apiFetch } = useAuth();
+  const { apiFetch, accessToken } = useAuth();
   const [loans, setLoans] = useState<any[]>([]);
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
   const [amortization, setAmortization] = useState<any>(null);
@@ -94,6 +94,33 @@ export const Loans: React.FC = () => {
     if (selectedLoanId) loadAmortization(selectedLoanId);
     else setAmortization(null);
   }, [selectedLoanId]);
+
+  const handleDownloadCsv = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      const response = await fetch(`${apiUrl}/loans/export`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export loans CSV');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `loans_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to download CSV');
+    }
+  };
 
   const openAdd = () => {
     setEditingLoan(null);
@@ -194,10 +221,19 @@ export const Loans: React.FC = () => {
           <h1 className="text-2xl font-bold tracking-tight">Loan & Debt Management</h1>
           <p className="text-gray-400 text-sm mt-1">Track EMIs, amortization curves, and run payoff forecasts.</p>
         </div>
-        <button onClick={openAdd} className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm transition-all shadow-md">
-          <Plus className="w-4 h-4" />
-          <span>Add Loan</span>
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleDownloadCsv}
+            className="flex items-center space-x-2 bg-gray-800 border border-gray-700 hover:bg-gray-700 text-white px-4 py-2.5 rounded-xl text-sm transition-all"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download CSV</span>
+          </button>
+          <button onClick={openAdd} className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-400 text-white px-4 py-2.5 rounded-xl text-sm transition-all shadow-md">
+            <Plus className="w-4 h-4" />
+            <span>Add Loan</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

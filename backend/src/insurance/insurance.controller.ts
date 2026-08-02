@@ -7,7 +7,9 @@ import {
   Body,
   Param,
   UseGuards,
+  Res,
 } from '@nestjs/common';
+import * as express from 'express';
 import { JwtAuthGuard } from '../auth/auth.guard.js';
 import { GetUserId } from '../auth/get-user.decorator.js';
 import { InsuranceService } from './insurance.service.js';
@@ -26,6 +28,20 @@ export class InsuranceController {
   @Get()
   findAll(@GetUserId() userId: string) {
     return this.insService.findAll(userId);
+  }
+
+  @Get('export')
+  async export(
+    @GetUserId() userId: string,
+    @Res({ passthrough: true }) res: express.Response,
+  ) {
+    const csv = await this.insService.exportCsv(userId);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=insurance.csv',
+    );
+    return csv;
   }
 
   @Get(':id')
